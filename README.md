@@ -36,6 +36,18 @@ py -3.11 -m venv .venv
 
 在终端按 `Ctrl+C`。
 
+## 安卓端同步（推荐 Pano Scrobbler）
+
+安卓手机上的网易云音乐用现成 app **Pano Scrobbler** 同步，无需本仓库代码：
+
+1. 安装 Pano Scrobbler：Google Play 搜索 `Pano Scrobbler`（包名 `com.arn.scrobble`），或从 https://github.com/kawaiiDango/pano-scrobbler/releases 下载 APK。
+2. 打开后在设置里登录同一个 last.fm 账号。
+3. 授予"通知使用权"：安卓设置 → 应用 → 特殊权限 → 通知使用权 → 打开 Pano Scrobbler（注意不是普通通知权限）。
+4. 打开网易云音乐放歌测试，Pano 显示正在播放即成功；播放达标后自动 scrobble。
+5. 国产手机（小米/华为/三星等）需要把 Pano Scrobbler 加入后台白名单、自启动、电池无限制，避免切到后台后被系统杀掉。
+
+注意：同一台设备不要同时运行多个 scrobbler，否则可能重复记录。
+
 ## 测试
 
 ```bash
