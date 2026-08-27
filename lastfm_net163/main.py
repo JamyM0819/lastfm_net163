@@ -1,0 +1,88 @@
+from __future__ import annotations
+
+import asyncio
+import sys
+import time
+import webbrowser
+
+from .config import Config, ensure_config, load_config, save_config
+from .lastfm import LastfmClient, LastfmError
+from .scrobbler import ScrobbleTracker, Track
+from .smtc import SmtcListener
+
+POLL_SECONDS = 2.0
+AUTH_POLL_SECONDS = 2.0
+AUTH_TIMEOUT_SECONDS = 300
+
+
+async def authorize(client: LastfmClient) -> str:
+    token = client.get_token()
+    url = client.auth_url(token)
+    print(f"请在浏览器中授权 last.fm：\n{url}")
+    webbrowser.open(url)
+    deadline = time.monotonic() + AUTH_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        await asyncio.sleep(AUTH_POLL_SECONDS)
+        try:
+            session = client.get_session(token)
+            print(f"授权成功：{session.username}")
+            return session.session_key
+        except LastfmError:
+            continue
+    raise LastfmError("等待 last.fm 授权超时")
+
+
+async def run_once(
+    listener: SmtcListener,
+    tracker: ScrobbleTracker,
+    client: LastfmClient,
+) -> Track | None:
+    manager = await listener.get_manager()
+    session = listener.find_session(manager)
+    if session is None:
+        tracker.on_track(None)
+        return None
+
+    track = await listener.read_track(session)
+    if tracker.on_track(track):
+        assert track is not None
+        client.scrobble(track.artist, track.title, track.album)
+        print(f"已 scrobble：{track.artist} - {track.title}")
+    return track
+
+
+async def amain() -> int:
+    config_path = ensure_config()
+    config = load_config(config_path)
+    if not config.api_key or not config.api_secret:
+        print(f"请先填写配置：{config_path}")
+        print("在 https://www.last.fm/api/account/create 申请 api_key / api_secret 后填入。")
+        return 1
+
+    client = LastfmClient(config.api_key, config.api_secret, config.session_key)
+    if not client.session_key:
+        print("首次使用，需要浏览器授权 last.fm。")
+        client.session_key = await authorize(client)
+        config.session_key = client.session_key
+        save_config(config, config_path)
+        print("session_key 已保存。")
+
+    listener = SmtcListener(config.match_keywords)
+    tracker = ScrobbleTracker()
+    print("开始监听网易云音乐（Ctrl+C 退出）…")
+
+    while True:
+        try:
+            await run_once(listener, tracker, client)
+        except LastfmError as exc:
+            print(f"last.fm 错误：{exc}", file=sys.stderr)
+        except Exception as exc:  # noqa: BLE001 - 常驻进程，任何异常都只记录不退出
+            print(f"监听异常：{exc!r}", file=sys.stderr)
+        await asyncio.sleep(POLL_SECONDS)
+
+
+def main() -> None:
+    try:
+        raise SystemExit(asyncio.run(amain()))
+    except KeyboardInterrupt:
+        print("已退出")
