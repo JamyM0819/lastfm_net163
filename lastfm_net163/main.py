@@ -104,13 +104,33 @@ async def run_once(
     return track
 
 
+def _read_credentials(input_fn=None) -> tuple[str, str]:
+    """交互式读取 last.fm api_key / api_secret。"""
+    if input_fn is None:
+        input_fn = input
+    print("在 https://www.last.fm/api/account/create 申请 api_key / api_secret。")
+    api_key = input_fn("api_key: ").strip()
+    api_secret = input_fn("api_secret: ").strip()
+    return api_key, api_secret
+
+
 async def amain() -> int:
     config_path = ensure_config()
     config = load_config(config_path)
     if not config.api_key or not config.api_secret:
-        print(f"请先填写配置：{config_path}")
-        print("在 https://www.last.fm/api/account/create 申请 api_key / api_secret 后填入。")
-        return 1
+        print(f"未检测到 last.fm 凭据（配置文件：{config_path}）")
+        try:
+            api_key, api_secret = _read_credentials()
+        except EOFError:
+            print("未输入，退出。")
+            return 1
+        if not api_key or not api_secret:
+            print("api_key / api_secret 不能为空。")
+            return 1
+        config.api_key = api_key
+        config.api_secret = api_secret
+        save_config(config, config_path)
+        print("凭据已保存。")
 
     client = LastfmClient(config.api_key, config.api_secret, config.session_key)
     if not client.session_key:

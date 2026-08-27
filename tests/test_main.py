@@ -1,6 +1,6 @@
 import asyncio
 
-from lastfm_net163.main import _enrich, run_once
+from lastfm_net163.main import _enrich, _read_credentials, run_once
 from lastfm_net163.scrobbler import ScrobbleTracker, Track
 
 
@@ -118,4 +118,15 @@ def test_enrich_keeps_smtc_values_when_present():
     out = _enrich(track, FakeClock(90), FakeDurations(999000))
     assert out.duration_seconds == 200
     assert out.position_seconds == 100
+
+
+def test_read_credentials_returns_trimmed_values(monkeypatch):
+    responses = iter(["  key1  ", " secret1 "])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(responses))
+    assert _read_credentials() == ("key1", "secret1")
+
+
+def test_read_credentials_returns_empty_strings():
+    assert _read_credentials(lambda prompt="": "") == ("", "")
+
 

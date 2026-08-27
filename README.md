@@ -15,6 +15,8 @@ py -3.11 -m venv .venv
 .venv/Scripts/python.exe -m pip install -r requirements.txt
 ```
 
+> CMD 用户注意：路径分隔符请用反斜杠，例如 `.venv\Scripts\python.exe`。
+
 ## 配置与首次授权
 
 1. 在 https://www.last.fm/api/account/create 免费申请 `api_key` / `api_secret`。
@@ -24,7 +26,7 @@ py -3.11 -m venv .venv
 .venv/Scripts/python.exe -m lastfm_net163.main
 ```
 
-3. 首次运行会提示配置文件位置 `%APPDATA%\lastfm_net163\config.toml`，把 `api_key` / `api_secret` 填进去后重新运行。
+3. 首次运行会提示配置文件位置 `%APPDATA%\lastfm_net163\config.toml`，并交互式询问 `api_key` / `api_secret`；粘贴后自动保存并继续。也可以手动编辑该文件填入后再运行。
 4. 程序会打开浏览器让你授权 last.fm，授权成功后自动保存 `session_key`，之后无需重复登录。
 5. 保持程序运行，打开网易云客户端正常听歌即可。播放达到曲目时长 50% 或 4 分钟（两者取先）后自动提交。
 
