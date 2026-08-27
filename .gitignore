@@ -1,13 +1,98 @@
+# === Python 运行时 / 构建产物 ===
 .venv/
+venv/
+env/
+ENV/
 __pycache__/
 *.pyc
-.pytest_cache/
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+*.egg-link/
+build/
+dist/
+sdist/
+wheels/
+develop-eggs/
+downloads/
+eggs/
+lib/
+lib64/
+parts/
+var/
+wheels/
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+.Python
+.python-version
 
-# 敏感信息
+# === 测试 / 质量工具缓存 ===
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+htmlcov/
+.cache/
+
+# === 敏感信息 / 凭据 ===
 config.toml
 .env
 .env.*
 *.secret
+*.secrets
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.csr
+*_rsa
+*_ed25519
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+*.token
+*.tokens
+credentials
+credentials.*
+*.credentials
 
-# 工具运行时元数据
+# === 日志 / 运行时数据 ===
+*.log
+*.log.*
+*.pid
+*.pid.lock
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# === IDE / 编辑器 ===
+.idea/
+.vscode/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+
+# === 操作系统生成的文件 ===
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+ehthumbs.db
+
+# === 工具运行时元数据 / 文档 ===
 .reasonix/
+docs/
