@@ -29,9 +29,11 @@ Python 3.11+，命令行程序，模块划分如下：
 |---|---|
 | `config.py` | 读写 `%APPDATA%\lastfm_net163\config.toml`：`api_key`、`api_secret`、`session_key`、网易云 AUMID 匹配规则 |
 | `smtc.py` | 用 `winsdk` 监听 Windows 媒体会话，过滤网易云会话，产出当前曲目（title/artist/album/duration/position）与播放状态 |
+| `playback_clock.py` | 按曲目累计真实播放秒数，用于 SMTC 不提供进度时自计时（实施后补充） |
+| `net163.py` | 查询网易云公开搜索接口，按歌名+歌手补全歌曲时长（实施后补充） |
 | `lastfm.py` | last.fm 授权（浏览器授权 + 轮询拿 `session_key`）和 `track.scrobble` 提交 |
 | `scrobbler.py` | 状态机：跟踪同一首歌的累计播放进度，判断是否达标，达标后提交并去重，切歌重置 |
-| `main.py` | 组合以上模块，常驻运行，Ctrl+C 退出 |
+| `main.py` | 组合以上模块（含 `_enrich` 时长/进度回退），常驻运行，Ctrl+C 退出 |
 
 依赖（`requirements.txt`）：
 

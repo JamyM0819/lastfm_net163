@@ -1128,6 +1128,22 @@ Expected: 若 Step 2 已经干净，此步提示 nothing to commit，可跳过�
 
 ---
 
+### Task 9: 时长与进度回退（网易云 API + 自计时）
+
+> 实施后补充：集成测试发现网易云 SMTC 的 timeline 全为 0（无时长/进度）。经用户确认，采用"自计时 + 网易云搜索 API 补时长"方案。
+
+**Files:**
+- Create: `lastfm_net163/playback_clock.py`（`PlaybackClock`：按曲目累计真实播放秒数，暂停不累计，切歌/reset 清零）
+- Create: `lastfm_net163/net163.py`（`NetEaseClient`：查 `https://music.163.com/api/search/get/web`，按歌名+歌手打分取最匹配时长，带缓存，失败返回 0）
+- Create: `tests/test_playback_clock.py`（4 个测试）、`tests/test_net163.py`（3 个测试）
+- Modify: `lastfm_net163/main.py`（新增 `_enrich`；`run_once` 增加可选 `clock`/`durations` 参数并保持 3 参调用兼容；`amain` 接入两者）
+- Modify: `tests/test_main.py`（新增 `FakeClock`/`FakeDurations` 与 2 个回退测试）
+- Modify: `README.md`（补充自计时与时长回退说明）
+
+已实现并提交：commit `76d363b`。全量测试 33 passed。
+
+---
+
 ## Self-Review
 
 **1. Spec coverage:**
