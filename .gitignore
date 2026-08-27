@@ -96,3 +96,4 @@ ehthumbs.db
 # === 工具运行时元数据 / 文档 ===
 .reasonix/
 docs/
+tests/
