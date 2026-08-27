@@ -9,6 +9,8 @@ import requests
 
 from .config import ensure_config, load_config, save_config
 from .lastfm import LastfmClient, LastfmError
+from .net163 import NetEaseClient
+from .playback_clock import PlaybackClock
 from .scrobbler import ScrobbleTracker, Track
 from .smtc import SmtcListener
 
@@ -49,18 +51,52 @@ async def authorize(client: LastfmClient) -> str:
     raise LastfmError("等待 last.fm 授权超时")
 
 
+def _enrich(
+    track: Track | None,
+    clock: PlaybackClock | None,
+    durations: NetEaseClient | None,
+) -> Track | None:
+    if track is None:
+        if clock is not None:
+            clock.reset()
+        return None
+
+    position = track.position_seconds
+    duration = track.duration_seconds
+
+    if position <= 0 and clock is not None:
+        position = clock.tick(track.key, track.is_playing)
+    if duration <= 0 and durations is not None:
+        ms = durations.get_duration_ms(track.artist, track.title)
+        if ms > 0:
+            duration = ms // 1000
+
+    return Track(
+        title=track.title,
+        artist=track.artist,
+        album=track.album,
+        duration_seconds=duration,
+        position_seconds=position,
+        is_playing=track.is_playing,
+    )
+
+
 async def run_once(
     listener: SmtcListener,
     tracker: ScrobbleTracker,
     client: LastfmClient,
+    clock: PlaybackClock | None = None,
+    durations: NetEaseClient | None = None,
 ) -> Track | None:
     manager = await listener.get_manager()
     session = listener.find_session(manager)
     if session is None:
+        if clock is not None:
+            clock.reset()
         tracker.on_track(None)
         return None
 
-    track = await listener.read_track(session)
+    track = _enrich(await listener.read_track(session), clock, durations)
     if tracker.on_track(track):
         assert track is not None
         client.scrobble(track.artist, track.title, track.album)
@@ -86,11 +122,13 @@ async def amain() -> int:
 
     listener = SmtcListener(config.match_keywords)
     tracker = ScrobbleTracker()
+    clock = PlaybackClock()
+    durations = NetEaseClient()
     print("开始监听网易云音乐（Ctrl+C 退出）…")
 
     while True:
         try:
-            await run_once(listener, tracker, client)
+            await run_once(listener, tracker, client, clock, durations)
         except LastfmError as exc:
             print(f"last.fm 错误：{exc}", file=sys.stderr)
         except Exception as exc:  # noqa: BLE001 - 常驻进程，任何异常都只记录不退出
