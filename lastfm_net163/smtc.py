@@ -41,7 +41,7 @@ class SmtcListener:
         title = media.title or ""
         artist = media.artist or ""
         album = media.album_title or ""
-        if not title and not artist:
+        if not title or not artist:
             return None
 
         return Track(

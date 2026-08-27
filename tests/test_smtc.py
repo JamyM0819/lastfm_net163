@@ -92,3 +92,13 @@ def test_read_track_returns_none_without_metadata():
         FakeTimeline(0, 0),
     )
     assert asyncio.run(SmtcListener().read_track(session)) is None
+
+
+def test_read_track_returns_none_without_artist():
+    session = FakeSession(
+        "CloudMusic.exe",
+        FakeMedia("Song", "", "Album"),
+        FakeInfo(4),
+        FakeTimeline(0, 0),
+    )
+    assert asyncio.run(SmtcListener().read_track(session)) is None

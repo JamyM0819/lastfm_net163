@@ -58,3 +58,29 @@ def test_get_duration_ms_returns_zero_on_error(monkeypatch):
 
     monkeypatch.setattr(requests, "get", fake_get)
     assert client.get_duration_ms("A", "T") == 0
+
+
+def test_get_duration_ms_does_not_cache_transient_error(monkeypatch):
+    client = NetEaseClient()
+    calls = []
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        calls.append(params)
+        if len(calls) == 1:
+            raise requests.RequestException("boom")
+        return FakeResp(
+            {"result": {"songs": [{"name": "T", "artists": [{"name": "A"}], "duration": 150000}]}}
+        )
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    assert client.get_duration_ms("A", "T") == 0
+    assert client.get_duration_ms("A", "T") == 150000
+    assert len(calls) == 2
+
+
+def test_best_match_returns_zero_when_no_match():
+    client = NetEaseClient()
+    songs = [
+        {"name": "Unrelated", "artists": [{"name": "Someone Else"}], "duration": 999000}
+    ]
+    assert client._best_match_ms("A", "T", songs) == 0

@@ -19,7 +19,7 @@ class NetEaseClient:
         wanted_title = title.strip().lower()
         wanted_artist = artist.strip().lower()
         best_ms = 0
-        best_score = -1
+        best_score = 0
         for song in songs:
             name = (song.get("name") or "").strip().lower()
             artists = [
@@ -29,7 +29,9 @@ class NetEaseClient:
             score = 0
             if name == wanted_title:
                 score += 3
-            elif wanted_title and name and (wanted_title in name or name in wanted_title):
+            elif wanted_title and name and len(wanted_title) > 1 and (
+                wanted_title in name or name in wanted_title
+            ):
                 score += 1
             if wanted_artist and any(
                 wanted_artist in artist_name or artist_name in wanted_artist
@@ -60,6 +62,6 @@ class NetEaseClient:
             songs = (data.get("result") or {}).get("songs") or []
             ms = self._best_match_ms(artist, title, songs)
         except (requests.RequestException, ValueError):
-            ms = 0
+            return 0
         self._cache[key] = ms
         return ms
