@@ -5,7 +5,9 @@ import sys
 import time
 import webbrowser
 
-from .config import Config, ensure_config, load_config, save_config
+import requests
+
+from .config import ensure_config, load_config, save_config
 from .lastfm import LastfmClient, LastfmError
 from .scrobbler import ScrobbleTracker, Track
 from .smtc import SmtcListener
@@ -16,11 +18,23 @@ AUTH_TIMEOUT_SECONDS = 300
 
 
 async def authorize(client: LastfmClient) -> str:
-    token = client.get_token()
+    deadline = time.monotonic() + AUTH_TIMEOUT_SECONDS
+
+    token: str | None = None
+    while time.monotonic() < deadline:
+        try:
+            token = client.get_token()
+            break
+        except requests.RequestException as exc:
+            print(f"获取授权 token 失败：{exc}", file=sys.stderr)
+            await asyncio.sleep(AUTH_POLL_SECONDS)
+    if token is None:
+        raise LastfmError("等待 last.fm 授权超时")
+
     url = client.auth_url(token)
     print(f"请在浏览器中授权 last.fm：\n{url}")
     webbrowser.open(url)
-    deadline = time.monotonic() + AUTH_TIMEOUT_SECONDS
+
     while time.monotonic() < deadline:
         await asyncio.sleep(AUTH_POLL_SECONDS)
         try:
@@ -28,6 +42,9 @@ async def authorize(client: LastfmClient) -> str:
             print(f"授权成功：{session.username}")
             return session.session_key
         except LastfmError:
+            continue
+        except requests.RequestException as exc:
+            print(f"查询授权状态失败：{exc}", file=sys.stderr)
             continue
     raise LastfmError("等待 last.fm 授权超时")
 
@@ -86,3 +103,10 @@ def main() -> None:
         raise SystemExit(asyncio.run(amain()))
     except KeyboardInterrupt:
         print("已退出")
+    except LastfmError as exc:
+        print(f"错误：{exc}", file=sys.stderr)
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()
