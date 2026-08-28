@@ -1,5 +1,7 @@
 package com.lastfm.net163
 
+import java.util.Locale
+
 data class Track(
     val title: String,
     val artist: String,
@@ -8,6 +10,9 @@ data class Track(
     val positionSeconds: Int,
     val isPlaying: Boolean
 ) {
-    val key: Triple<String, String, String>
-        get() = Triple(title.trim().lowercase(), artist.trim().lowercase(), album.trim().lowercase())
+    val key: Triple<String, String, String> = Triple(
+        title.trim().lowercase(Locale.ROOT),
+        artist.trim().lowercase(Locale.ROOT),
+        album.trim().lowercase(Locale.ROOT)
+    )
 }
