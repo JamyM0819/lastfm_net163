@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
+        android:allowBackup="false"
         android:label="lastfm_net163"
         android:theme="@style/Theme.LastfmNet163">
 
