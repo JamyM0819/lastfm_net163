@@ -6,6 +6,7 @@ import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 class NetEaseClient(
@@ -18,7 +19,7 @@ class NetEaseClient(
         private const val SEARCH_URL = "https://music.163.com/api/search/get/web"
     }
 
-    private val cache = mutableMapOf<Pair<String, String>, Int>()
+    private val cache = ConcurrentHashMap<Pair<String, String>, Int>()
 
     fun getDurationMs(artist: String, title: String): Int {
         val key = artist.trim().lowercase(Locale.ROOT) to title.trim().lowercase(Locale.ROOT)

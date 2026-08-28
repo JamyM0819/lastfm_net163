@@ -5,13 +5,16 @@ import android.os.SystemClock
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
-import kotlin.concurrent.thread
+import java.util.concurrent.Executors
 
 class ScrobbleNotificationListener : NotificationListenerService() {
     private val tracker = PlaybackTracker()
     private val clock = PlaybackClock()
-    private var lastfm: LastfmClient? = null
-    private var netease: NetEaseClient? = null
+    @Volatile private var lastfm: LastfmClient? = null
+    @Volatile private var netease: NetEaseClient? = null
+    private val executor = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "lastfm-net163-worker").apply { isDaemon = true }
+    }
 
     fun configure(apiKey: String, apiSecret: String, sessionKey: String) {
         if (apiKey.isBlank() || apiSecret.isBlank()) {
@@ -28,13 +31,27 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         if (sbn.packageName != "com.netease.cloudmusic") return
         val title = sbn.notification.extras.getString(Notification.EXTRA_TITLE)
         val text = sbn.notification.extras.getString(Notification.EXTRA_TEXT)
-        thread {
+        executor.execute {
             val parsed = NotificationParser.parse(title, text)
             val track = enrich(parsed)
             if (tracker.onTrack(track)) {
                 track?.let { submit(it) }
             }
         }
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification?) {
+        sbn ?: return
+        if (sbn.packageName != "com.netease.cloudmusic") return
+        executor.execute {
+            tracker.onTrack(null)
+            clock.reset()
+        }
+    }
+
+    override fun onDestroy() {
+        executor.shutdown()
+        super.onDestroy()
     }
 
     private fun enrich(track: Track?): Track? {

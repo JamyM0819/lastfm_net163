@@ -21,4 +21,10 @@ class NotificationParserTest {
         val track = NotificationParser.parse("Mean", "Taylor Swift - 专辑名")
         assertEquals("Taylor Swift", track?.artist)
     }
+
+    @Test fun returnsNullForNullOrBlankInputs() {
+        assertNull(NotificationParser.parse(null, "Taylor Swift"))
+        assertNull(NotificationParser.parse("Mean", null))
+        assertNull(NotificationParser.parse("   ", "   "))
+    }
 }
