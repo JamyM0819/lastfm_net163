@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Last.fm 广告屏蔽（通用，非仅 Google）
 // @namespace    lastfm.no-ads
-// @version      5.0
+// @version      5.1
 // @description  屏蔽 last.fm 上的所有广告（Google + Freestar/AppNexus/PubMatic 等所有广告商），横幅/侧边栏/全屏插页/弹窗，并折叠广告移除后残留的空位
 // @match        https://www.last.fm/*
 // @match        https://last.fm/*
@@ -32,6 +32,10 @@
     const COLLAPSE_STYLE = 'height:0!important;min-height:0!important;max-height:0!important;margin:0!important;padding:0!important;border:0!important;overflow:hidden!important;';
     // 绝不折叠的顶层容器
     const PROTECTED = new Set(['HTML', 'BODY', 'MAIN', 'HEADER', 'FOOTER', 'NAV']);
+    // last.fm 混淆广告位特征：iai（inline ad insertion）、广告尺寸标记（如 728x90）
+    const IAI_RE = /(^|[-_])(iai)([-_]|$)/i;
+    const AD_SIZE_RE = /\d{2,4}x\d{2,4}/i;
+    const AD_SIZE_DATA_RE = /__\d{2,4}x\d{2,4}/i;
 
     const isAdUrl = (u) => {
         u = String(u || '').toLowerCase();
@@ -42,13 +46,23 @@
         if (!el) return false;
         const id = String(el.id || '');
         const cls = String(el.className || '');
-        const s = id + ' ' + cls;
+        const name = typeof el.getAttribute === 'function' ? String(el.getAttribute('name') || '') : '';
+        const s = id + ' ' + cls + ' ' + name;
         // last.fm 已知广告位 + Google/通用特征
         if (/sidebar-ad-container|sticky-ad-container|full-bleed-ad-container|recs-feed-item--ad|related-ads|tonefuze|adSkin|freestar|adsbygoogle|vignette|google-auto-placed/i.test(s)) return true;
         // 独立的 ad / ads / advert / advertisement / sponsored 词（被分隔符包围，避免误伤 load/read/header）
         if (/(^|[-_\s])(ad|ads|advert|advertisement|sponsored)([-_\s]|$)/i.test(s)) return true;
         // camelCase 前缀：adSlot / adsContainer 等
         if (/\b(ad|ads)[A-Z]/.test(s)) return true;
+        // last.fm 混淆广告位：id/name 含 _iai（inline ad insertion）
+        if (IAI_RE.test(id + ' ' + name)) return true;
+        // 广告尺寸标记：id/name 里的 728x90；data-* 属性里的 __728x90
+        if (AD_SIZE_RE.test(id) || AD_SIZE_RE.test(name)) return true;
+        if (el.attributes) {
+            for (const attr of el.attributes) {
+                if (attr.name && attr.name.startsWith('data-') && AD_SIZE_DATA_RE.test(String(attr.value))) return true;
+            }
+        }
         return false;
     };
 
@@ -139,7 +153,8 @@
         [class*="google-auto-placed"], [class*="google_auto_placed"],
         [id*="google_ads"], [class*="google_ads"], [id*="google-ads"], [class*="google-ads"],
         [class*="freestar"], [class*="advert"], [class*="sponsored"],
-        [id*="-ad-"], [class*="-ad-"], [id*="-ads-"], [class*="-ads-"]
+        [id*="-ad-"], [class*="-ad-"], [id*="-ads-"], [class*="-ads-"],
+        [id*="_iai"], [name*="_iai"], [id*="-iai"], [name*="-iai"]
         { display: none !important; visibility: hidden !important; }
 
         .sidebar-ad-container, .sticky-ad-container, .full-bleed-ad-container,
