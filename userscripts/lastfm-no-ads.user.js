@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Last.fm 广告屏蔽（通用，非仅 Google）
 // @namespace    lastfm.no-ads
-// @version      5.1
+// @version      5.2
 // @description  屏蔽 last.fm 上的所有广告（Google + Freestar/AppNexus/PubMatic 等所有广告商），横幅/侧边栏/全屏插页/弹窗，并折叠广告移除后残留的空位
 // @match        https://www.last.fm/*
 // @match        https://last.fm/*
@@ -54,6 +54,13 @@
         if (/(^|[-_\s])(ad|ads|advert|advertisement|sponsored)([-_\s]|$)/i.test(s)) return true;
         // camelCase 前缀：adSlot / adsContainer 等
         if (/\b(ad|ads)[A-Z]/.test(s)) return true;
+        // Freestar 标记 / sticky footer / 关闭广告按钮
+        if (el.hasAttribute && el.hasAttribute('data-fs-ancillary')) return true;
+        if (/(sticky[-_]?footer|sticky[-_]?bar|adhesion|floor[-_]?ad)/i.test(s)) return true;
+        const aria = typeof el.getAttribute === 'function'
+            ? String(el.getAttribute('aria-label') || '') + ' ' + String(el.getAttribute('title') || '')
+            : '';
+        if (/close\s*ad|关闭广告/i.test(aria)) return true;
         // last.fm 混淆广告位：id/name 含 _iai（inline ad insertion）
         if (IAI_RE.test(id + ' ' + name)) return true;
         // 广告尺寸标记：id/name 里的 728x90；data-* 属性里的 __728x90
@@ -81,7 +88,7 @@
         if (!node) return false;
         if (isAdNode(node)) return true;
         if (typeof node.querySelectorAll === 'function') {
-            const kids = node.querySelectorAll('iframe, ins, div, aside, section');
+            const kids = node.querySelectorAll('iframe, ins, div, aside, section, button');
             for (const k of kids) if (isAdNode(k)) return true;
         }
         return false;
@@ -154,7 +161,10 @@
         [id*="google_ads"], [class*="google_ads"], [id*="google-ads"], [class*="google-ads"],
         [class*="freestar"], [class*="advert"], [class*="sponsored"],
         [id*="-ad-"], [class*="-ad-"], [id*="-ads-"], [class*="-ads-"],
-        [id*="_iai"], [name*="_iai"], [id*="-iai"], [name*="-iai"]
+        [id*="_iai"], [name*="_iai"], [id*="-iai"], [name*="-iai"],
+        [data-fs-ancillary], [id*="sticky_footer"], [name*="sticky_footer"],
+        [id*="sticky-footer"], [name*="sticky-footer"],
+        [aria-label*="Close Ad" i], [aria-label*="关闭广告"]
         { display: none !important; visibility: hidden !important; }
 
         .sidebar-ad-container, .sticky-ad-container, .full-bleed-ad-container,
@@ -178,7 +188,7 @@
             }
         });
 
-        document.querySelectorAll('iframe, ins, div, aside, section').forEach(el => {
+        document.querySelectorAll('iframe, ins, div, aside, section, button').forEach(el => {
             if (isAdNode(el)) {
                 const parent = el.parentElement;
                 el.remove();
