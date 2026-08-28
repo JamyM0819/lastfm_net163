@@ -36,6 +36,18 @@ py -3.11 -m venv .venv
 
 在终端按 `Ctrl+C`。
 
+## 安卓端自研 App（本仓库 android/）
+
+如果 Pano Scrobbler 读不到网易云，可用本仓库自带的安卓 App：
+
+```bash
+cd android
+./gradlew :app:assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+安装后打开 App：填 api_key / api_secret → 保存凭据 → 授权 last.fm → 开启通知使用权 → 在网易云放歌即可。
+
 ## 安卓端同步（推荐 Pano Scrobbler）
 
 安卓手机上的网易云音乐用现成 app **Pano Scrobbler** 同步，无需本仓库代码：
