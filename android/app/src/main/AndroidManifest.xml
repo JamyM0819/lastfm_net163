@@ -6,7 +6,7 @@
 
     <application
         android:label="lastfm_net163"
-        android:theme="@style/Theme.AppCompat.DayNight">
+        android:theme="@style/Theme.LastfmNet163">
 
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
