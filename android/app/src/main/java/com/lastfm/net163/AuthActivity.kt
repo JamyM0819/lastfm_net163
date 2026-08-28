@@ -9,7 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import kotlin.concurrent.thread
 
 class AuthActivity : AppCompatActivity() {
-    private var token: String = ""
+    @Volatile private var token: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,19 +47,24 @@ class AuthActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             thread {
-                try {
-                    val (sessionKey, username) = client.getSession(token)
-                    prefs.sessionKey = sessionKey
-                    prefs.username = username
-                    ScrobbleNotificationListener.instance?.configure(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
-                    runOnUiThread {
-                        Toast.makeText(this, "授权成功：$username", Toast.LENGTH_LONG).show()
-                        finish()
+                val deadline = System.currentTimeMillis() + 300_000L
+                while (System.currentTimeMillis() < deadline) {
+                    try {
+                        val (sessionKey, username) = client.getSession(token)
+                        prefs.sessionKey = sessionKey
+                        prefs.username = username
+                        ScrobbleNotificationListener.instance?.configure(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
+                        runOnUiThread {
+                            Toast.makeText(this, "授权成功：$username", Toast.LENGTH_LONG).show()
+                            finish()
+                        }
+                        return@thread
+                    } catch (e: Exception) {
+                        Thread.sleep(2_000L)
                     }
-                } catch (e: Exception) {
-                    runOnUiThread {
-                        Toast.makeText(this, "授权失败：${e.message}", Toast.LENGTH_LONG).show()
-                    }
+                }
+                runOnUiThread {
+                    Toast.makeText(this, "授权超时，请重试", Toast.LENGTH_LONG).show()
                 }
             }
         }
