@@ -6,13 +6,16 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 
 class ScrobbleNotificationListener : NotificationListenerService() {
     private val tracker = PlaybackTracker()
     private val clock = PlaybackClock()
     @Volatile private var lastfm: LastfmClient? = null
     @Volatile private var netease: NetEaseClient? = null
-    private val executor = Executors.newSingleThreadExecutor { r ->
+    private var currentTrack: Track? = null
+    private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { r ->
         Thread(r, "lastfm-net163-worker").apply { isDaemon = true }
     }
 
@@ -31,6 +34,7 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         instance = this
         val prefs = Prefs(this)
         configure(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
+        executor.scheduleWithFixedDelay({ heartbeat() }, 2, 2, TimeUnit.SECONDS)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
@@ -41,6 +45,7 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         executor.execute {
             val parsed = NotificationParser.parse(title, text)
             val track = enrich(parsed)
+            currentTrack = track
             if (tracker.onTrack(track)) {
                 track?.let { submit(it) }
             }
@@ -51,6 +56,7 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         sbn ?: return
         if (sbn.packageName != "com.netease.cloudmusic") return
         executor.execute {
+            currentTrack = null
             tracker.onTrack(null)
             clock.reset()
         }
@@ -60,6 +66,15 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         instance = null
         executor.shutdown()
         super.onDestroy()
+    }
+
+    private fun heartbeat() {
+        val track = currentTrack ?: return
+        val position = clock.tick(track.key, track.isPlaying, SystemClock.elapsedRealtime() / 1000)
+        val updated = track.copy(positionSeconds = position)
+        if (tracker.onTrack(updated)) {
+            submit(updated)
+        }
     }
 
     private fun enrich(track: Track?): Track? {
