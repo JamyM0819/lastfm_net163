@@ -26,6 +26,13 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         netease = NetEaseClient()
     }
 
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        instance = this
+        val prefs = Prefs(this)
+        configure(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         sbn ?: return
         if (sbn.packageName != "com.netease.cloudmusic") return
@@ -50,6 +57,7 @@ class ScrobbleNotificationListener : NotificationListenerService() {
     }
 
     override fun onDestroy() {
+        instance = null
         executor.shutdown()
         super.onDestroy()
     }
@@ -79,5 +87,7 @@ class ScrobbleNotificationListener : NotificationListenerService() {
 
     companion object {
         private const val TAG = "lastfm_net163"
+
+        @Volatile var instance: ScrobbleNotificationListener? = null
     }
 }
