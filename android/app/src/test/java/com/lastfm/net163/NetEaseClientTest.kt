@@ -21,4 +21,11 @@ class NetEaseClientTest {
             .put("artists", JSONArray().put(JSONObject().put("name", "Someone Else"))))
         assertEquals(0, NetEaseClient().bestMatchMs("A", "T", songs))
     }
+
+    @Test fun bestMatchDoesNotReturnArtistOnlyMatch() {
+        val songs = JSONArray()
+        songs.put(JSONObject().put("name", "Unrelated Song").put("duration", 999000)
+            .put("artists", JSONArray().put(JSONObject().put("name", "Taylor Swift"))))
+        assertEquals(0, NetEaseClient().bestMatchMs("Taylor Swift", "Mean", songs))
+    }
 }

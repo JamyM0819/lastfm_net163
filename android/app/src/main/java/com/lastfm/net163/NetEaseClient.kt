@@ -5,6 +5,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class NetEaseClient(
@@ -20,7 +21,7 @@ class NetEaseClient(
     private val cache = mutableMapOf<Pair<String, String>, Int>()
 
     fun getDurationMs(artist: String, title: String): Int {
-        val key = artist.trim().lowercase() to title.trim().lowercase()
+        val key = artist.trim().lowercase(Locale.ROOT) to title.trim().lowercase(Locale.ROOT)
         cache[key]?.let { return it }
         return try {
             val url = SEARCH_URL.toHttpUrl().newBuilder()
@@ -34,13 +35,10 @@ class NetEaseClient(
                 .header("Referer", "https://music.163.com/")
                 .build()
             httpClient.newCall(request).execute().use { resp ->
-                val ms = if (!resp.isSuccessful) {
-                    0
-                } else {
-                    val json = JSONObject(resp.body?.string() ?: "")
-                    val songs = json.optJSONObject("result")?.optJSONArray("songs") ?: JSONArray()
-                    bestMatchMs(artist, title, songs)
-                }
+                if (!resp.isSuccessful) return 0
+                val json = JSONObject(resp.body?.string() ?: "")
+                val songs = json.optJSONObject("result")?.optJSONArray("songs") ?: JSONArray()
+                val ms = bestMatchMs(artist, title, songs)
                 cache[key] = ms
                 ms
             }
@@ -50,13 +48,13 @@ class NetEaseClient(
     }
 
     fun bestMatchMs(artist: String, title: String, songs: JSONArray): Int {
-        val wantedTitle = title.trim().lowercase()
-        val wantedArtist = artist.trim().lowercase()
+        val wantedTitle = title.trim().lowercase(Locale.ROOT)
+        val wantedArtist = artist.trim().lowercase(Locale.ROOT)
         var bestMs = 0
         var bestScore = 0
         for (i in 0 until songs.length()) {
             val song = songs.optJSONObject(i) ?: continue
-            val name = song.optString("name").trim().lowercase()
+            val name = song.optString("name").trim().lowercase(Locale.ROOT)
             val artists = song.optJSONArray("artists") ?: JSONArray()
             var score = 0
             if (name == wantedTitle) {
@@ -66,8 +64,10 @@ class NetEaseClient(
             ) {
                 score += 1
             }
+            if (score == 0) continue
             for (j in 0 until artists.length()) {
-                val artistName = artists.optJSONObject(j)?.optString("name")?.trim()?.lowercase().orEmpty()
+                val artistName = artists.optJSONObject(j)?.optString("name")?.trim()
+                    ?.lowercase(Locale.ROOT).orEmpty()
                 if (wantedArtist.isNotBlank() &&
                     (wantedArtist in artistName || artistName in wantedArtist)
                 ) {
