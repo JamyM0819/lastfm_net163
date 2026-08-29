@@ -48,4 +48,20 @@
         android:layout_height="wrap_content"
         android:text="开启通知使用权"
         android:layout_marginTop="8dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="12dp">
+
+        <TextView
+            android:id="@+id/debug"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textIsSelectable="true"
+            android:textSize="12sp"
+            android:text="（放歌→暂停后，调试信息显示在这里）" />
+    </ScrollView>
 </LinearLayout>

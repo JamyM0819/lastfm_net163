@@ -41,5 +41,6 @@ class MainActivity : AppCompatActivity() {
         val prefs = Prefs(this)
         val status = findViewById<TextView>(R.id.status)
         status.text = if (prefs.sessionKey.isBlank()) "未授权 last.fm" else "已登录：${prefs.username}"
+        findViewById<TextView>(R.id.debug).text = DebugLog.text()
     }
 }

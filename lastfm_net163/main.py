@@ -63,18 +63,22 @@ def _enrich(
 
     position = track.position_seconds
     duration = track.duration_seconds
+    album = track.album
 
     if position <= 0 and clock is not None:
         position = clock.tick(track.key, track.is_playing)
-    if duration <= 0 and durations is not None:
-        ms = durations.get_duration_ms(track.artist, track.title)
-        if ms > 0:
-            duration = ms // 1000
+    if durations is not None:
+        if duration <= 0:
+            ms = durations.get_duration_ms(track.artist, track.title)
+            if ms > 0:
+                duration = ms // 1000
+        if not album:
+            album = durations.get_album(track.artist, track.title)
 
     return Track(
         title=track.title,
         artist=track.artist,
-        album=track.album,
+        album=album,
         duration_seconds=duration,
         position_seconds=position,
         is_playing=track.is_playing,
@@ -156,7 +160,18 @@ async def amain() -> int:
         await asyncio.sleep(POLL_SECONDS)
 
 
+def _enable_line_buffering() -> None:
+    """后台运行时 stdout/stderr 被重定向到文件后默认是块缓冲，日志会迟迟不落盘；
+    这里改成行缓冲，保证 print 实时写入日志文件，方便开机后台运行时排查状态。"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(line_buffering=True)  # type: ignore[attr-defined]
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 def main() -> None:
+    _enable_line_buffering()
     try:
         raise SystemExit(asyncio.run(amain()))
     except KeyboardInterrupt:
