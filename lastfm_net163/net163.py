@@ -4,23 +4,29 @@ import requests
 
 SEARCH_URL = "https://music.163.com/api/search/get/web"
 
+COMPILATION_HINTS = (
+    "greatest",
+    "best of",
+    "best-of",
+    "collection",
+    "compilation",
+    "anthology",
+    "essential",
+    "ultimate",
+    "singles",
+    "hits",
+    "精选",
+)
+
+
+def is_compilation_album(album_name: str) -> bool:
+    """判断专辑名是否指向精选集/合辑，用于同名单曲时优先正专。"""
+    lowered = album_name.lower()
+    return any(hint in lowered for hint in COMPILATION_HINTS)
+
 
 class NetEaseClient:
     """查询网易云公开搜索接口，按歌名+歌手补全歌曲时长和专辑名。"""
-
-    _COMPILATION_HINTS = (
-        "greatest",
-        "best of",
-        "best-of",
-        "collection",
-        "compilation",
-        "anthology",
-        "essential",
-        "ultimate",
-        "singles",
-        "hits",
-        "精选",
-    )
 
     def __init__(self, timeout: float = 5.0) -> None:
         self.timeout = timeout
@@ -28,10 +34,6 @@ class NetEaseClient:
 
     def _key(self, artist: str, title: str) -> tuple[str, str]:
         return (artist.strip().lower(), title.strip().lower())
-
-    def _is_compilation(self, album_name: str) -> bool:
-        lowered = album_name.lower()
-        return any(hint in lowered for hint in self._COMPILATION_HINTS)
 
     def _best_match(self, artist: str, title: str, songs: list[dict]) -> tuple[int, str]:
         """返回 (duration_ms, album_name)；精选集专辑会被降权，优先正专。"""
@@ -59,7 +61,7 @@ class NetEaseClient:
                 for artist_name in artists
             ):
                 score += 2
-            if self._is_compilation(album_name):
+            if is_compilation_album(album_name):
                 score -= 1
             if score > best_score:
                 best_score = score

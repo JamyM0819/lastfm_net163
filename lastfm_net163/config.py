@@ -20,6 +20,7 @@ class Config:
     api_secret: str = ""
     session_key: str = ""
     match_keywords: tuple[str, ...] = DEFAULT_MATCH_KEYWORDS
+    prefer_albums: tuple[str, ...] = ()
 
 
 def _default_toml() -> str:
@@ -30,6 +31,8 @@ def _default_toml() -> str:
         'api_secret = ""\n'
         'session_key = ""\n'
         'match_keywords = ["cloudmusic", "netease"]\n'
+        "# 同名歌曲在播放队列里对应多张专辑时，优先匹配这里列出的专辑名（如正专）\n"
+        'prefer_albums = []\n'
     )
 
 
@@ -49,6 +52,7 @@ def load_config(path: Path = DEFAULT_PATH) -> Config:
         api_secret=data.get("api_secret", ""),
         session_key=data.get("session_key", ""),
         match_keywords=tuple(data.get("match_keywords", DEFAULT_MATCH_KEYWORDS)),
+        prefer_albums=tuple(data.get("prefer_albums", ())),
     )
 
 
@@ -59,5 +63,6 @@ def save_config(config: Config, path: Path = DEFAULT_PATH) -> None:
         f"api_secret = {json.dumps(config.api_secret)}",
         f"session_key = {json.dumps(config.session_key)}",
         f"match_keywords = {json.dumps(list(config.match_keywords))}",
+        f"prefer_albums = {json.dumps(list(config.prefer_albums))}",
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

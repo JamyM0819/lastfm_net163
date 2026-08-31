@@ -1,2 +1,3 @@
 winsdk
 requests
+pycryptodome

@@ -12,28 +12,35 @@
         android:text="未配置"
         android:textSize="18sp" />
 
-    <EditText
-        android:id="@+id/api_key"
+    <LinearLayout
+        android:id="@+id/credentials"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="api_key"
-        android:inputType="text"
-        android:layout_marginTop="16dp" />
+        android:orientation="vertical">
 
-    <EditText
-        android:id="@+id/api_secret"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="api_secret"
-        android:inputType="textPassword"
-        android:layout_marginTop="8dp" />
+        <EditText
+            android:id="@+id/api_key"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="api_key"
+            android:inputType="text"
+            android:layout_marginTop="16dp" />
 
-    <Button
-        android:id="@+id/save"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="保存凭据"
-        android:layout_marginTop="8dp" />
+        <EditText
+            android:id="@+id/api_secret"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="api_secret"
+            android:inputType="textPassword"
+            android:layout_marginTop="8dp" />
+
+        <Button
+            android:id="@+id/save"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="保存凭据"
+            android:layout_marginTop="8dp" />
+    </LinearLayout>
 
     <Button
         android:id="@+id/auth"
@@ -43,17 +50,73 @@
         android:layout_marginTop="8dp" />
 
     <Button
+        android:id="@+id/edit_credentials"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="修改凭据"
+        android:layout_marginTop="8dp"
+        android:visibility="gone" />
+
+    <Button
         android:id="@+id/notification_access"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="开启通知使用权"
         android:layout_marginTop="8dp" />
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="12dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="last.fm 同步列表"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/clear_history"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="清除记录" />
+    </LinearLayout>
+
     <ScrollView
+        android:id="@+id/history_scroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="12dp">
+        android:layout_marginTop="4dp">
+
+        <TextView
+            android:id="@+id/history"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textIsSelectable="true"
+            android:textSize="12sp"
+            android:text="（暂无同步记录）" />
+    </ScrollView>
+
+    <Button
+        android:id="@+id/toggle_debug"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="后台信息 ▸" />
+
+    <ScrollView
+        android:id="@+id/debug_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="4dp"
+        android:visibility="gone">
 
         <TextView
             android:id="@+id/debug"

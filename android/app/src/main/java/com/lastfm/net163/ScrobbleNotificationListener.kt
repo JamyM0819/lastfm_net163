@@ -38,17 +38,17 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         }
     }
 
-    private fun isPlaying(): Boolean = when (playbackState?.state) {
-        PlaybackState.STATE_PAUSED, PlaybackState.STATE_STOPPED, PlaybackState.STATE_NONE -> false
-        else -> true
-    }
+    private fun isPlaying(): Boolean = PlaybackStateRules.isPlaying(playbackState?.state)
 
     private fun attachController(token: MediaSession.Token) {
-        mediaController?.unregisterCallback(controllerCallback)
+        val existing = mediaController
+        if (existing?.sessionToken == token) return
+        existing?.unregisterCallback(controllerCallback)
         val c = MediaController(this, token)
         c.registerCallback(controllerCallback)
         mediaController = c
-        playbackState = c.playbackState
+        // 保留上次已知状态，等新 controller 的回调到达后再更新。
+        c.playbackState?.let { playbackState = it }
         val ms = c.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0
         mediaDurationSec = (ms / 1000).toInt()
     }
@@ -61,6 +61,11 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         }
         lastfm = LastfmClient(apiKey, apiSecret, sessionKey)
         netease = NetEaseClient()
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        ScrobbleHistory.init(this)
     }
 
     override fun onListenerConnected() {
@@ -79,11 +84,13 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         val text = extras.getString(Notification.EXTRA_TEXT)
         @Suppress("DEPRECATION")
         val token = extras.getParcelable<MediaSession.Token>(Notification.EXTRA_MEDIA_SESSION)
-        if (token != null) {
-            attachController(token)
+        if (token == null) {
+            DebugLog.append("POST title=$title text=$text mediaToken=false ignored")
+            return
         }
+        attachController(token)
         val playing = isPlaying()
-        DebugLog.append("POST title=$title text=$text mediaToken=${token != null} playing=$playing")
+        DebugLog.append("POST title=$title text=$text mediaToken=true playing=$playing")
         executor.execute {
             val parsed = NotificationParser.parse(title, text, playing)
             val track = enrich(parsed)
@@ -97,6 +104,13 @@ class ScrobbleNotificationListener : NotificationListenerService() {
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         sbn ?: return
         if (sbn.packageName != "com.netease.cloudmusic") return
+        val extras = sbn.notification.extras
+        @Suppress("DEPRECATION")
+        val token = extras.getParcelable<MediaSession.Token>(Notification.EXTRA_MEDIA_SESSION)
+        if (token == null) {
+            DebugLog.append("REMOVED mediaToken=false ignored")
+            return
+        }
         DebugLog.append("REMOVED")
         mediaController?.unregisterCallback(controllerCallback)
         mediaController = null
@@ -143,8 +157,10 @@ class ScrobbleNotificationListener : NotificationListenerService() {
     private fun submit(track: Track) {
         try {
             lastfm?.scrobble(track.artist, track.title, track.album)
+            ScrobbleHistory.add(track.artist, track.title)
             DebugLog.append("SCROBBLED ${track.artist} - ${track.title}")
         } catch (e: Exception) {
+            DebugLog.append("SCROBBLE FAILED ${track.artist} - ${track.title}: ${e.message}")
             Log.w(TAG, "scrobble failed: ${e.message}")
         }
     }

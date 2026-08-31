@@ -9,6 +9,8 @@ import requests
 
 from .config import ensure_config, load_config, save_config
 from .lastfm import LastfmClient, LastfmError
+from .local_library import LocalLibrary
+from .ncm_playing import NcmPlayingReader
 from .net163 import NetEaseClient
 from .playback_clock import PlaybackClock
 from .scrobbler import ScrobbleTracker, Track
@@ -55,6 +57,9 @@ def _enrich(
     track: Track | None,
     clock: PlaybackClock | None,
     durations: NetEaseClient | None,
+    library: LocalLibrary | None = None,
+    ncm: NcmPlayingReader | None = None,
+    album_memo: dict[tuple[str, str], str] | None = None,
 ) -> Track | None:
     if track is None:
         if clock is not None:
@@ -65,15 +70,50 @@ def _enrich(
     duration = track.duration_seconds
     album = track.album
 
-    if position <= 0 and clock is not None:
-        position = clock.tick(track.key, track.is_playing)
-    if durations is not None:
-        if duration <= 0:
+    ncm_now = ncm.now() if ncm is not None else None
+    ncm_match = ncm_now is not None and (
+        ncm_now.title.strip().lower() == track.title.strip().lower()
+        and (
+            ncm_now.artist.strip().lower() in track.artist.strip().lower()
+            or track.artist.strip().lower() in ncm_now.artist.strip().lower()
+        )
+    )
+
+    # 先补时长（不参与 key，顺序无关紧要，但保持补全先于计时）
+    if duration <= 0:
+        if ncm_match and ncm_now.duration_ms > 0:
+            duration = ncm_now.duration_ms // 1000
+        elif durations is not None:
             ms = durations.get_duration_ms(track.artist, track.title)
             if ms > 0:
                 duration = ms // 1000
-        if not album:
+
+    # 再补专辑，并缓存结果：同一首歌内专辑值稳定，避免 key 跳变导致
+    # ScrobbleTracker 反复重置、重复提交。
+    if not album:
+        memo_key = (track.artist.strip().lower(), track.title.strip().lower())
+        if ncm_match and ncm_now.album:
+            album = ncm_now.album
+        elif album_memo is not None:
+            album = album_memo.get(memo_key, "")
+        if not album and library is not None:
+            album = library.get_album(track.artist, track.title)
+        if not album and durations is not None:
             album = durations.get_album(track.artist, track.title)
+        if album and album_memo is not None:
+            album_memo[memo_key] = album
+
+    # 用补全后的 key 计时：同名同歌手但不同专辑的版本不会再串计时。
+    enriched = Track(
+        title=track.title,
+        artist=track.artist,
+        album=album,
+        duration_seconds=duration,
+        position_seconds=position,
+        is_playing=track.is_playing,
+    )
+    if position <= 0 and clock is not None:
+        position = clock.tick(enriched.key, track.is_playing)
 
     return Track(
         title=track.title,
@@ -91,6 +131,9 @@ async def run_once(
     client: LastfmClient,
     clock: PlaybackClock | None = None,
     durations: NetEaseClient | None = None,
+    library: LocalLibrary | None = None,
+    ncm: NcmPlayingReader | None = None,
+    album_memo: dict[tuple[str, str], str] | None = None,
 ) -> Track | None:
     manager = await listener.get_manager()
     session = listener.find_session(manager)
@@ -100,7 +143,14 @@ async def run_once(
         tracker.on_track(None)
         return None
 
-    track = _enrich(await listener.read_track(session), clock, durations)
+    track = _enrich(
+        await listener.read_track(session),
+        clock,
+        durations,
+        library,
+        ncm,
+        album_memo,
+    )
     if tracker.on_track(track):
         assert track is not None
         client.scrobble(track.artist, track.title, track.album)
@@ -148,11 +198,14 @@ async def amain() -> int:
     tracker = ScrobbleTracker()
     clock = PlaybackClock()
     durations = NetEaseClient()
+    library = LocalLibrary(prefer_albums=config.prefer_albums)
+    ncm = NcmPlayingReader()
+    album_memo: dict[tuple[str, str], str] = {}
     print("开始监听网易云音乐（Ctrl+C 退出）…")
 
     while True:
         try:
-            await run_once(listener, tracker, client, clock, durations)
+            await run_once(listener, tracker, client, clock, durations, library, ncm, album_memo)
         except LastfmError as exc:
             print(f"last.fm 错误：{exc}", file=sys.stderr)
         except Exception as exc:  # noqa: BLE001 - 常驻进程，任何异常都只记录不退出

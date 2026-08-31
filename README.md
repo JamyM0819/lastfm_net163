@@ -30,7 +30,7 @@ py -3.11 -m venv .venv
 4. 程序会打开浏览器让你授权 last.fm，授权成功后自动保存 `session_key`，之后无需重复登录。
 5. 保持程序运行，打开网易云客户端正常听歌即可。播放达到曲目时长 50% 或 4 分钟（两者取先）后自动提交。
 
-> 网易云客户端不通过系统媒体会话提供播放进度和专辑信息时，程序会自计时，并通过网易云公开搜索接口补全歌曲时长与专辑名（精选集会被降权，优先正专）。
+> 网易云客户端不通过系统媒体会话提供播放进度和专辑信息。程序会从网易云客户端本地存储（`%LOCALAPPDATA%\Netease\CloudMusic\webapp91x64\Local Storage\leveldb`）中解密出当前播放的完整信息（含专辑、时长、trackId），同名单曲也能准确区分专辑；本地存储不可用时才回退到本地播放队列和公开搜索接口。
 
 ## 退出
 
@@ -46,7 +46,11 @@ cd android
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-安装后打开 App：填 api_key / api_secret → 保存凭据 → 授权 last.fm → 开启通知使用权 → 在网易云放歌即可。
+安装后打开 App：填 api_key / api_secret → 保存凭据 → 授权 last.fm → 开启通知使用权 → 在网易云放歌即可。凭据与 last.fm 会话会保存在本地，之后重新打开 App 会自动读取，无需再次输入；授权成功后主界面会隐藏凭据输入框，只显示登录状态。
+
+> 安卓端计时只认 `PlaybackState.STATE_PLAYING`，缓冲（`STATE_BUFFERING`）不计入播放时长；`mediaToken=false` 的通知（如“听歌识曲正在运行”）会被忽略，不会干扰当前曲目的计时。
+>
+> 主界面的“last.fm 同步列表”会显示本机成功 scrobble 的记录，点“清除记录”可随时清空；后台调试信息默认折叠在“后台信息”按钮里，点按钮展开/收起，且列表与调试信息都会每秒自动刷新，无需切换页面。
 
 ## 安卓端同步（推荐 Pano Scrobbler）
 
