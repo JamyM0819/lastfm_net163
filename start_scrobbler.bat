@@ -4,6 +4,3 @@ chcp 65001 > nul
 title lastfm_net163 scrobbler
 cd /d "%~dp0"
 ".venv\Scripts\python.exe" -m lastfm_net163.main
-echo.
-echo [scrobbler exited] press any key to close...
-pause > nul
