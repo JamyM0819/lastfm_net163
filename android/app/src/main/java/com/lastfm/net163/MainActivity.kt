@@ -26,6 +26,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.core.view.WindowCompat
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import java.io.File
 import kotlin.concurrent.thread
 
@@ -46,12 +48,21 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = lfmRed
+        WindowCompat.getInsetsController(window, window.decorView)?.isAppearanceLightStatusBars = false
         setContentView(R.layout.activity_main)
 
         prefs = Prefs(this)
         ScrobbleHistory.init(this)
 
         findViewById<ImageView>(R.id.avatar).setOnClickListener { showAvatarMenu() }
+        val swipe = findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
+        swipe.setColorSchemeResources(android.R.color.holo_red_light)
+        swipe.setOnRefreshListener {
+            loadAvatar()
+            refreshStatus()
+            loadDashboard { swipe.isRefreshing = false }
+        }
         loadAvatar()
         refreshStatus()
         loadDashboard()
@@ -174,8 +185,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadDashboard() {
+    private fun loadDashboard(onDone: (() -> Unit)? = null) {
         if (prefs.apiKey.isBlank() || prefs.username.isBlank()) {
+            onDone?.invoke()
             return
         }
         thread {
@@ -197,10 +209,14 @@ class MainActivity : AppCompatActivity() {
                     item.copy(imageUrl = netease.searchImageUrl(item.artist, item.title, 1).ifBlank { item.imageUrl })
                 }
 
-                runOnUiThread { renderDashboard(recent, artists, albums, tracks) }
+                runOnUiThread {
+                    renderDashboard(recent, artists, albums, tracks)
+                    onDone?.invoke()
+                }
             } catch (e: Exception) {
                 runOnUiThread {
                     Toast.makeText(this, "加载 last.fm 数据失败：${e.message}", Toast.LENGTH_LONG).show()
+                    onDone?.invoke()
                 }
             }
         }
