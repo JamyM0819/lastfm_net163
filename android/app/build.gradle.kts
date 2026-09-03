@@ -33,7 +33,6 @@ dependencies {
     implementation("com.google.android.material:material:1.4.0")
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.5.2")
-    implementation("io.coil-kt:coil:2.4.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20210307")
 }

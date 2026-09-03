@@ -23,7 +23,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
-import coil.load
 import java.io.File
 import kotlin.concurrent.thread
 
@@ -99,7 +98,7 @@ class MainActivity : AppCompatActivity() {
                 val info = client.getUserInfo(prefs.username)
                 runOnUiThread {
                     if (info.imageUrl.isNotBlank()) {
-                        avatar.load(info.imageUrl) { crossfade(true) }
+                        ArtLoader.load(avatar, info.imageUrl)
                     } else {
                         setInitialsAvatar(avatar)
                     }
@@ -255,7 +254,7 @@ class MainActivity : AppCompatActivity() {
                 marginEnd = dp(9)
             }
             setBackgroundColor(0xFFF0C0B8.toInt())
-            if (item.imageUrl.isNotBlank()) load(item.imageUrl) { crossfade(true) }
+            if (item.imageUrl.isNotBlank()) ArtLoader.load(this, item.imageUrl)
         }
         val meta = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -304,7 +303,7 @@ class MainActivity : AppCompatActivity() {
         val image = ImageView(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(9) }
             setBackgroundColor(0xFFF0C0B8.toInt())
-            if (imageUrl.isNotBlank()) load(imageUrl) { crossfade(true) }
+            if (imageUrl.isNotBlank()) ArtLoader.load(this, imageUrl)
         }
         val meta = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -339,7 +338,7 @@ class MainActivity : AppCompatActivity() {
             val image = ImageView(this).apply {
                 layoutParams = LinearLayout.LayoutParams(dp(72), dp(72))
                 setBackgroundColor(0xFFF0C0B8.toInt())
-                if (album.imageUrl.isNotBlank()) load(album.imageUrl) { crossfade(true) }
+                if (album.imageUrl.isNotBlank()) ArtLoader.load(this, album.imageUrl)
             }
             val name = TextView(this).apply {
                 text = album.name.ifBlank { "未知专辑" }
