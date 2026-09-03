@@ -181,11 +181,22 @@ class MainActivity : AppCompatActivity() {
         thread {
             try {
                 val client = LastfmClient(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
+                val netease = NetEaseClient()
                 val username = prefs.username
-                val recent = client.getRecentTracks(username, 10)
-                val artists = client.getTopArtists(username, 10)
-                val albums = client.getTopAlbums(username, 6)
-                val tracks = client.getTopTracks(username, 10)
+
+                val recent = client.getRecentTracks(username, 5).map { item ->
+                    item.copy(imageUrl = netease.searchImageUrl(item.artist, item.title, 1).ifBlank { item.imageUrl })
+                }
+                val artists = client.getTopArtists(username, 5).map { item ->
+                    item.copy(imageUrl = netease.searchImageUrl("", item.name, 100).ifBlank { item.imageUrl })
+                }
+                val albums = client.getTopAlbums(username, 3).map { item ->
+                    item.copy(imageUrl = netease.searchImageUrl(item.artist, item.name, 10).ifBlank { item.imageUrl })
+                }
+                val tracks = client.getTopTracks(username, 5).map { item ->
+                    item.copy(imageUrl = netease.searchImageUrl(item.artist, item.title, 1).ifBlank { item.imageUrl })
+                }
+
                 runOnUiThread { renderDashboard(recent, artists, albums, tracks) }
             } catch (e: Exception) {
                 runOnUiThread {
