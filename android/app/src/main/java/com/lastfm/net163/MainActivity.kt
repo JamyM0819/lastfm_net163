@@ -236,7 +236,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         addSection(container, "Recent Tracks")
-        recent.forEachIndexed { index, item -> addTrackRow(container, index, item, item.timeLabel) }
+        recent.forEachIndexed { _, item -> addTrackRow(container, null, item, item.timeLabel) }
 
         addSection(container, "Top Artists")
         artists.forEachIndexed { index, item ->
@@ -273,7 +273,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun addTrackRow(
         container: LinearLayout,
-        rankOrIndex: Any,
+        rankOrIndex: Any?,
         item: TrackItem,
         rightLabel: String
     ) {
