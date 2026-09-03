@@ -82,6 +82,7 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         val extras = sbn.notification.extras
         val title = extras.getString(Notification.EXTRA_TITLE)
         val text = extras.getString(Notification.EXTRA_TEXT)
+        val subText = extras.getString(Notification.EXTRA_SUB_TEXT)
         @Suppress("DEPRECATION")
         val token = extras.getParcelable<MediaSession.Token>(Notification.EXTRA_MEDIA_SESSION)
         if (token == null) {
@@ -92,7 +93,7 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         val playing = isPlaying()
         DebugLog.append("POST title=$title text=$text mediaToken=true playing=$playing")
         executor.execute {
-            val parsed = NotificationParser.parse(title, text, playing)
+            val parsed = NotificationParser.parse(title, text, subText, playing)
             val track = enrich(parsed)
             currentTrack = track
             if (tracker.onTrack(track)) {

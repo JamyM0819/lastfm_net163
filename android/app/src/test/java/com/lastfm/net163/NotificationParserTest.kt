@@ -20,6 +20,13 @@ class NotificationParserTest {
     @Test fun extractsArtistFromTextWhenTextHasDash() {
         val track = NotificationParser.parse("Mean", "Taylor Swift - 专辑名")
         assertEquals("Taylor Swift", track?.artist)
+        assertEquals("专辑名", track?.album)
+    }
+
+    @Test fun usesSubTextAsAlbumWhenTextHasNoDash() {
+        val track = NotificationParser.parse("Mean", "Taylor Swift", "1989")
+        assertEquals("Taylor Swift", track?.artist)
+        assertEquals("1989", track?.album)
     }
 
     @Test fun returnsNullForNullOrBlankInputs() {
