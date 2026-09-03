@@ -1,6 +1,7 @@
 package com.lastfm.net163
 
 import android.app.AlertDialog
+import android.app.ProgressDialog
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -408,13 +409,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkUpdate() {
-        Toast.makeText(this, "开始下载更新…", Toast.LENGTH_SHORT).show()
+        val dialog = ProgressDialog(this).apply {
+            setMessage("正在下载更新，请稍候…")
+            setCancelable(false)
+            show()
+        }
         thread {
             try {
                 val apk = UpdateChecker.downloadApk(cacheDir)
-                runOnUiThread { installApk(apk) }
+                runOnUiThread {
+                    dialog.dismiss()
+                    installApk(apk)
+                }
             } catch (e: Exception) {
                 runOnUiThread {
+                    dialog.dismiss()
                     Toast.makeText(this, "更新失败：${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
@@ -422,11 +431,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun installApk(apk: File) {
-        val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", apk)
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", apk)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "打开安装页失败：${e.message}", Toast.LENGTH_LONG).show()
         }
-        startActivity(intent)
     }
 }

@@ -11,7 +11,7 @@ object UpdateChecker {
         "https://raw.githubusercontent.com/JamyM0819/lastfm_net163/main/apk/app-debug.apk"
 
     private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
