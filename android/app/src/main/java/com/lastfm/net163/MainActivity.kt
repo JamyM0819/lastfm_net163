@@ -170,7 +170,7 @@ class MainActivity : AppCompatActivity() {
         if (prefs.sessionKey.isBlank() || prefs.username.isBlank()) {
             status.text = "未授权 last.fm"
         } else {
-            status.text = "已登录：${prefs.username} · 同步中"
+            status.text = "已登录 · 同步中"
         }
     }
 
@@ -213,8 +213,8 @@ class MainActivity : AppCompatActivity() {
         tracks: List<TrackItem>
     ) {
         val container = findViewById<LinearLayout>(R.id.dashboard)
-        // 清空除状态卡之外的所有 section
-        for (i in container.childCount - 1 downTo 1) {
+        // 清空所有 section
+        for (i in container.childCount - 1 downTo 0) {
             container.removeViewAt(i)
         }
 
