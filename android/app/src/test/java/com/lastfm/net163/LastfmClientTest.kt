@@ -1,5 +1,7 @@
 package com.lastfm.net163
 
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -23,6 +25,23 @@ class LastfmClientTest {
         val url = client.authUrl("tok123")
         assertTrue(url.contains("api_key=key"))
         assertTrue(url.contains("token=tok123"))
+    }
+
+    @Test fun imageUrlPrefersExtralarge() {
+        val client = LastfmClient("key", "secret")
+        val arr = JSONArray()
+        arr.put(JSONObject().put("size", "small").put("#text", "https://small"))
+        arr.put(JSONObject().put("size", "large").put("#text", "https://large"))
+        arr.put(JSONObject().put("size", "extralarge").put("#text", "https://extralarge"))
+        assertEquals("https://extralarge", client.imageUrl(arr))
+    }
+
+    @Test fun imageUrlFallsBackToLarge() {
+        val client = LastfmClient("key", "secret")
+        val arr = JSONArray()
+        arr.put(JSONObject().put("size", "small").put("#text", "https://small"))
+        arr.put(JSONObject().put("size", "large").put("#text", "https://large"))
+        assertEquals("https://large", client.imageUrl(arr))
     }
 }
 

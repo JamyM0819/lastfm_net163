@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.LastfmNet163" parent="Theme.AppCompat.DayNight" />
+    <style name="Theme.LastfmNet163" parent="Theme.AppCompat.DayNight.NoActionBar" />
 </resources>

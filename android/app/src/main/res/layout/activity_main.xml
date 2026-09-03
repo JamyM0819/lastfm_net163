@@ -28,6 +28,7 @@
             android:id="@+id/avatar"
             android:layout_width="38dp"
             android:layout_height="38dp"
+            android:scaleType="centerCrop"
             android:contentDescription="账号菜单" />
     </LinearLayout>
 

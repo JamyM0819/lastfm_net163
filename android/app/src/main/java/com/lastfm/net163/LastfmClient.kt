@@ -150,7 +150,7 @@ class LastfmClient(
         return list
     }
 
-    private fun imageUrl(arr: org.json.JSONArray?): String {
+    internal fun imageUrl(arr: org.json.JSONArray?): String {
         if (arr == null) return ""
         var large = ""
         var extra = ""

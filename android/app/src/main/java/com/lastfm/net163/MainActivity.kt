@@ -2,7 +2,10 @@ package com.lastfm.net163
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -57,6 +60,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        loadAvatar()
         handler.postDelayed(refreshRunnable, 1_000L)
     }
 
@@ -110,13 +114,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setInitialsAvatar(avatar: ImageView) {
-        avatar.setImageDrawable(null)
-        avatar.setBackgroundColor(Color.WHITE)
-        avatar.background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(Color.WHITE)
-            setStroke(dp(2), lfmRed)
+        val letter = prefs.username.trim().firstOrNull()?.uppercase() ?: "?"
+        val size = dp(38)
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.FILL
         }
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+        paint.color = lfmRed
+        paint.textSize = dp(16).toFloat()
+        paint.typeface = Typeface.DEFAULT_BOLD
+        paint.textAlign = Paint.Align.CENTER
+        val fm = paint.fontMetrics
+        val baseline = size / 2f - (fm.ascent + fm.descent) / 2f
+        canvas.drawText(letter, size / 2f, baseline, paint)
+        avatar.setImageBitmap(bitmap)
     }
 
     private fun showCredentialsDialog() {
@@ -253,6 +267,7 @@ class MainActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply {
                 marginEnd = dp(9)
             }
+            scaleType = ImageView.ScaleType.CENTER_CROP
             setBackgroundColor(0xFFF0C0B8.toInt())
             if (item.imageUrl.isNotBlank()) ArtLoader.load(this, item.imageUrl)
         }
@@ -302,6 +317,7 @@ class MainActivity : AppCompatActivity() {
         }
         val image = ImageView(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(9) }
+            scaleType = ImageView.ScaleType.CENTER_CROP
             setBackgroundColor(0xFFF0C0B8.toInt())
             if (imageUrl.isNotBlank()) ArtLoader.load(this, imageUrl)
         }
@@ -337,6 +353,7 @@ class MainActivity : AppCompatActivity() {
             }
             val image = ImageView(this).apply {
                 layoutParams = LinearLayout.LayoutParams(dp(72), dp(72))
+                scaleType = ImageView.ScaleType.CENTER_CROP
                 setBackgroundColor(0xFFF0C0B8.toInt())
                 if (album.imageUrl.isNotBlank()) ArtLoader.load(this, album.imageUrl)
             }

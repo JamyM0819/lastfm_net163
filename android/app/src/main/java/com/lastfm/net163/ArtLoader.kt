@@ -25,7 +25,9 @@ object ArtLoader {
         view.tag = url
         thread {
             try {
-                val request = Request.Builder().url(url).build()
+                val request = Request.Builder().url(url)
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 11) lastfm_net163")
+                    .build()
                 client.newCall(request).execute().use { resp ->
                     if (!resp.isSuccessful) return@use
                     val bytes = resp.body?.bytes() ?: return@use
