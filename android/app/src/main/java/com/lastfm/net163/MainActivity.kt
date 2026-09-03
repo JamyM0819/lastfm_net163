@@ -74,6 +74,8 @@ class MainActivity : AppCompatActivity() {
     private fun showAvatarMenu() {
         val anchor = findViewById<View>(R.id.avatar)
         val popup = PopupMenu(this, anchor)
+        val header = popup.menu.add("构建 ${BuildConfig.GIT_HASH}")
+        header.isEnabled = false
         popup.menu.add("重新授权 last.fm")
         popup.menu.add("修改凭据")
         popup.menu.add("开启通知使用权")
@@ -92,8 +94,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadAvatar() {
         val avatar = findViewById<ImageView>(R.id.avatar)
+        setAvatarPlaceholder(avatar)
         if (prefs.apiKey.isBlank() || prefs.username.isBlank()) {
-            setInitialsAvatar(avatar)
             return
         }
         thread {
@@ -103,18 +105,16 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     if (info.imageUrl.isNotBlank()) {
                         ArtLoader.load(avatar, info.imageUrl)
-                    } else {
-                        setInitialsAvatar(avatar)
                     }
                 }
             } catch (e: Exception) {
-                runOnUiThread { setInitialsAvatar(avatar) }
+                // 占位头像保持显示
             }
         }
     }
 
-    private fun setInitialsAvatar(avatar: ImageView) {
-        val letter = prefs.username.trim().firstOrNull()?.uppercase() ?: "?"
+    private fun setAvatarPlaceholder(avatar: ImageView) {
+        val text = BuildConfig.GIT_HASH.ifBlank { "?" }
         val size = dp(38)
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -124,12 +124,12 @@ class MainActivity : AppCompatActivity() {
         }
         canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
         paint.color = lfmRed
-        paint.textSize = dp(16).toFloat()
+        paint.textSize = dp(9).toFloat()
         paint.typeface = Typeface.DEFAULT_BOLD
         paint.textAlign = Paint.Align.CENTER
         val fm = paint.fontMetrics
         val baseline = size / 2f - (fm.ascent + fm.descent) / 2f
-        canvas.drawText(letter, size / 2f, baseline, paint)
+        canvas.drawText(text, size / 2f, baseline, paint)
         avatar.setImageBitmap(bitmap)
     }
 
