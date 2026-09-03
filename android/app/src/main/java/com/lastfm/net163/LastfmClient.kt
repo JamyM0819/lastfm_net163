@@ -91,9 +91,9 @@ class LastfmClient(
         return list
     }
 
-    fun getTopArtists(username: String, limit: Int = 10): List<ArtistItem> {
+    fun getTopArtists(username: String, limit: Int = 10, period: String = "overall"): List<ArtistItem> {
         val json = call(
-            mapOf("method" to "user.gettopartists", "user" to username, "limit" to limit.toString())
+            mapOf("method" to "user.gettopartists", "user" to username, "limit" to limit.toString(), "period" to period)
         )
         val artists = json.optJSONObject("topartists")?.optJSONArray("artist") ?: return emptyList()
         val list = mutableListOf<ArtistItem>()
@@ -110,9 +110,9 @@ class LastfmClient(
         return list
     }
 
-    fun getTopAlbums(username: String, limit: Int = 10): List<AlbumItem> {
+    fun getTopAlbums(username: String, limit: Int = 10, period: String = "overall"): List<AlbumItem> {
         val json = call(
-            mapOf("method" to "user.gettopalbums", "user" to username, "limit" to limit.toString())
+            mapOf("method" to "user.gettopalbums", "user" to username, "limit" to limit.toString(), "period" to period)
         )
         val albums = json.optJSONObject("topalbums")?.optJSONArray("album") ?: return emptyList()
         val list = mutableListOf<AlbumItem>()
@@ -130,9 +130,9 @@ class LastfmClient(
         return list
     }
 
-    fun getTopTracks(username: String, limit: Int = 10): List<TrackItem> {
+    fun getTopTracks(username: String, limit: Int = 10, period: String = "overall"): List<TrackItem> {
         val json = call(
-            mapOf("method" to "user.gettoptracks", "user" to username, "limit" to limit.toString())
+            mapOf("method" to "user.gettoptracks", "user" to username, "limit" to limit.toString(), "period" to period)
         )
         val tracks = json.optJSONObject("toptracks")?.optJSONArray("track") ?: return emptyList()
         val list = mutableListOf<TrackItem>()

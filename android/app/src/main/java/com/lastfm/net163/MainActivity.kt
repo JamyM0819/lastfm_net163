@@ -47,6 +47,23 @@ class MainActivity : AppCompatActivity() {
     private val muted = 0xFF8A8A8A.toInt()
     private val line = 0xFFE8E8EC.toInt()
 
+    private lateinit var swipe: SwipeRefreshLayout
+
+    private var artistPeriod = "overall"
+    private var albumPeriod = "overall"
+    private var trackPeriod = "overall"
+
+    private data class PeriodOption(val label: String, val apiValue: String)
+
+    private val periodOptions = listOf(
+        PeriodOption("All Time", "overall"),
+        PeriodOption("7天", "7day"),
+        PeriodOption("30天", "1month"),
+        PeriodOption("90天", "3month"),
+        PeriodOption("180天", "6month"),
+        PeriodOption("365天", "12month")
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = lfmRed
@@ -57,13 +74,9 @@ class MainActivity : AppCompatActivity() {
         ScrobbleHistory.init(this)
 
         findViewById<ImageView>(R.id.avatar).setOnClickListener { showAvatarMenu() }
-        val swipe = findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
+        swipe = findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
         swipe.setColorSchemeResources(android.R.color.holo_red_light)
-        swipe.setOnRefreshListener {
-            loadAvatar()
-            refreshStatus()
-            loadDashboard { swipe.isRefreshing = false }
-        }
+        swipe.setOnRefreshListener { reload() }
         loadAvatar()
         refreshStatus()
         loadDashboard()
@@ -186,6 +199,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun reload() {
+        swipe.isRefreshing = true
+        loadAvatar()
+        refreshStatus()
+        loadDashboard { swipe.isRefreshing = false }
+    }
+
     private fun loadDashboard(onDone: (() -> Unit)? = null) {
         if (prefs.apiKey.isBlank() || prefs.username.isBlank()) {
             onDone?.invoke()
@@ -202,15 +222,15 @@ class MainActivity : AppCompatActivity() {
                         .ifBlank { netease.searchImageUrl("", item.artist, 100) }
                     item.copy(imageUrl = img.ifBlank { item.imageUrl })
                 }
-                val artists = client.getTopArtists(username, 5).map { item ->
+                val artists = client.getTopArtists(username, 5, artistPeriod).map { item ->
                     item.copy(imageUrl = netease.searchImageUrl("", item.name, 100).ifBlank { item.imageUrl })
                 }
-                val albums = client.getTopAlbums(username, 3).map { item ->
+                val albums = client.getTopAlbums(username, 3, albumPeriod).map { item ->
                     val img = netease.searchImageUrl(item.artist, item.name, 10)
                         .ifBlank { netease.searchImageUrl("", item.artist, 100) }
                     item.copy(imageUrl = img.ifBlank { item.imageUrl })
                 }
-                val tracks = client.getTopTracks(username, 5).map { item ->
+                val tracks = client.getTopTracks(username, 5, trackPeriod).map { item ->
                     val img = netease.searchImageUrl(item.artist, item.title, 1)
                         .ifBlank { netease.searchImageUrl("", item.artist, 100) }
                     item.copy(imageUrl = img.ifBlank { item.imageUrl })
@@ -245,17 +265,53 @@ class MainActivity : AppCompatActivity() {
         recent.forEachIndexed { _, item -> addTrackRow(container, null, item, item.timeLabel) }
 
         addSection(container, "Top Artists")
+        addPeriodSelector(container, artistPeriod) { p -> artistPeriod = p; reload() }
         artists.forEachIndexed { index, item ->
             addArtistRow(container, index + 1, item.name, "${item.scrobbles} scrobbles", item.imageUrl)
         }
 
         addSection(container, "Top Albums")
+        addPeriodSelector(container, albumPeriod) { p -> albumPeriod = p; reload() }
         addAlbumGrid(container, albums)
 
         addSection(container, "Top Tracks")
+        addPeriodSelector(container, trackPeriod) { p -> trackPeriod = p; reload() }
         tracks.forEachIndexed { index, item ->
             addTrackRow(container, index + 1, item, item.timeLabel)
         }
+    }
+
+    private fun addPeriodSelector(
+        container: LinearLayout,
+        current: String,
+        onSelect: (String) -> Unit
+    ) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(6), 0, dp(8))
+        }
+        periodOptions.forEach { option ->
+            val selected = option.apiValue == current
+            val chip = TextView(this).apply {
+                text = option.label
+                textSize = 11f
+                setPadding(dp(10), dp(5), dp(10), dp(5))
+                setTextColor(if (selected) Color.WHITE else lfmRedDark)
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(12).toFloat()
+                    setColor(if (selected) lfmRed else Color.WHITE)
+                    setStroke(dp(1), lfmRed)
+                }
+                setOnClickListener {
+                    if (!selected) onSelect(option.apiValue)
+                }
+            }
+            val params = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { marginEnd = dp(6) }
+            row.addView(chip, params)
+        }
+        container.addView(row)
     }
 
     private fun addSection(container: LinearLayout, title: String) {
