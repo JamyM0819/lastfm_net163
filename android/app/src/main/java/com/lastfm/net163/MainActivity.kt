@@ -1,20 +1,29 @@
 package com.lastfm.net163
 
+import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import coil.load
 import java.io.File
 import kotlin.concurrent.thread
 
@@ -23,10 +32,15 @@ class MainActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
         override fun run() {
-            refreshDynamic()
+            refreshStatus()
             handler.postDelayed(this, 1_000L)
         }
     }
+
+    private val lfmRed = 0xFFD51007.toInt()
+    private val lfmRedDark = 0xFFB00E06.toInt()
+    private val muted = 0xFF8A8A8A.toInt()
+    private val line = 0xFFE8E8EC.toInt()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,72 +49,319 @@ class MainActivity : AppCompatActivity() {
         prefs = Prefs(this)
         ScrobbleHistory.init(this)
 
-        val apiKey = findViewById<EditText>(R.id.api_key)
-        val apiSecret = findViewById<EditText>(R.id.api_secret)
-        apiKey.setText(prefs.apiKey)
-        apiSecret.setText(prefs.apiSecret)
-
-        findViewById<Button>(R.id.save).setOnClickListener {
-            prefs.apiKey = apiKey.text.toString().trim()
-            prefs.apiSecret = apiSecret.text.toString().trim()
-            ScrobbleNotificationListener.instance?.configure(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
-            refreshStatus()
-            Toast.makeText(this, "凭据已保存", Toast.LENGTH_SHORT).show()
-        }
-
-        findViewById<Button>(R.id.auth).setOnClickListener {
-            val key = apiKey.text.toString().trim()
-            val secret = apiSecret.text.toString().trim()
-            if (key.isBlank() || secret.isBlank()) {
-                Toast.makeText(this, "请先填写 api_key / api_secret", Toast.LENGTH_LONG).show()
-                return@setOnClickListener
-            }
-            prefs.apiKey = key
-            prefs.apiSecret = secret
-            ScrobbleNotificationListener.instance?.configure(key, secret, prefs.sessionKey)
-            startActivity(Intent(this, AuthActivity::class.java))
-        }
-
-        findViewById<Button>(R.id.edit_credentials).setOnClickListener {
-            findViewById<LinearLayout>(R.id.credentials).visibility = View.VISIBLE
-            it.visibility = View.GONE
-        }
-
-        findViewById<Button>(R.id.notification_access).setOnClickListener {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        }
-
-        findViewById<Button>(R.id.check_update).setOnClickListener {
-            checkUpdate()
-        }
-
-        findViewById<Button>(R.id.clear_history).setOnClickListener {
-            ScrobbleHistory.clear()
-            refreshDynamic()
-            Toast.makeText(this, "同步列表已清除", Toast.LENGTH_SHORT).show()
-        }
-
-        val debugScroll = findViewById<ScrollView>(R.id.debug_scroll)
-        val toggleDebug = findViewById<Button>(R.id.toggle_debug)
-        toggleDebug.setOnClickListener {
-            val visible = debugScroll.visibility == View.VISIBLE
-            debugScroll.visibility = if (visible) View.GONE else View.VISIBLE
-            toggleDebug.text = if (visible) "后台信息 ▸" else "后台信息 ▾"
-        }
-
+        findViewById<ImageView>(R.id.avatar).setOnClickListener { showAvatarMenu() }
+        loadAvatar()
         refreshStatus()
+        loadDashboard()
     }
 
     override fun onResume() {
         super.onResume()
         refreshStatus()
-        refreshDynamic()
         handler.postDelayed(refreshRunnable, 1_000L)
     }
 
     override fun onPause() {
         handler.removeCallbacks(refreshRunnable)
         super.onPause()
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private fun showAvatarMenu() {
+        val anchor = findViewById<View>(R.id.avatar)
+        val popup = PopupMenu(this, anchor)
+        popup.menu.add("重新授权 last.fm")
+        popup.menu.add("修改凭据")
+        popup.menu.add("开启通知使用权")
+        popup.menu.add("检查更新")
+        popup.setOnMenuItemClickListener { item ->
+            when (item.title.toString()) {
+                "重新授权 last.fm" -> startActivity(Intent(this, AuthActivity::class.java))
+                "修改凭据" -> showCredentialsDialog()
+                "开启通知使用权" -> startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                "检查更新" -> checkUpdate()
+            }
+            true
+        }
+        popup.show()
+    }
+
+    private fun loadAvatar() {
+        val avatar = findViewById<ImageView>(R.id.avatar)
+        if (prefs.apiKey.isBlank() || prefs.username.isBlank()) {
+            setInitialsAvatar(avatar)
+            return
+        }
+        thread {
+            try {
+                val client = LastfmClient(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
+                val info = client.getUserInfo(prefs.username)
+                runOnUiThread {
+                    if (info.imageUrl.isNotBlank()) {
+                        avatar.load(info.imageUrl) { crossfade(true) }
+                    } else {
+                        setInitialsAvatar(avatar)
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread { setInitialsAvatar(avatar) }
+            }
+        }
+    }
+
+    private fun setInitialsAvatar(avatar: ImageView) {
+        avatar.setImageDrawable(null)
+        avatar.setBackgroundColor(Color.WHITE)
+        avatar.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(Color.WHITE)
+            setStroke(dp(2), lfmRed)
+        }
+    }
+
+    private fun showCredentialsDialog() {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(12), dp(24), 0)
+        }
+        val apiKey = EditText(this).apply {
+            hint = "api_key"
+            setText(prefs.apiKey)
+        }
+        val apiSecret = EditText(this).apply {
+            hint = "api_secret"
+            setText(prefs.apiSecret)
+        }
+        box.addView(apiKey)
+        box.addView(apiSecret)
+
+        AlertDialog.Builder(this)
+            .setTitle("修改凭据")
+            .setView(box)
+            .setPositiveButton("保存") { _, _ ->
+                prefs.apiKey = apiKey.text.toString().trim()
+                prefs.apiSecret = apiSecret.text.toString().trim()
+                ScrobbleNotificationListener.instance?.configure(
+                    prefs.apiKey, prefs.apiSecret, prefs.sessionKey
+                )
+                refreshStatus()
+                Toast.makeText(this, "凭据已保存", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun refreshStatus() {
+        val status = findViewById<TextView>(R.id.status)
+        if (prefs.sessionKey.isBlank() || prefs.username.isBlank()) {
+            status.text = "未授权 last.fm"
+        } else {
+            status.text = "已登录：${prefs.username} · 同步中"
+        }
+    }
+
+    private fun loadDashboard() {
+        if (prefs.apiKey.isBlank() || prefs.username.isBlank()) {
+            return
+        }
+        thread {
+            try {
+                val client = LastfmClient(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
+                val username = prefs.username
+                val recent = client.getRecentTracks(username, 10)
+                val artists = client.getTopArtists(username, 10)
+                val albums = client.getTopAlbums(username, 6)
+                val tracks = client.getTopTracks(username, 10)
+                runOnUiThread { renderDashboard(recent, artists, albums, tracks) }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "加载 last.fm 数据失败：${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun renderDashboard(
+        recent: List<TrackItem>,
+        artists: List<ArtistItem>,
+        albums: List<AlbumItem>,
+        tracks: List<TrackItem>
+    ) {
+        val container = findViewById<LinearLayout>(R.id.dashboard)
+        // 清空除状态卡之外的所有 section
+        for (i in container.childCount - 1 downTo 1) {
+            container.removeViewAt(i)
+        }
+
+        addSection(container, "Recent Tracks")
+        recent.forEachIndexed { index, item -> addTrackRow(container, index, item, item.timeLabel) }
+
+        addSection(container, "Top Artists")
+        artists.forEachIndexed { index, item ->
+            addArtistRow(container, index + 1, item.name, "${item.scrobbles} scrobbles", item.imageUrl)
+        }
+
+        addSection(container, "Top Albums")
+        addAlbumGrid(container, albums)
+
+        addSection(container, "Top Tracks")
+        tracks.forEachIndexed { index, item ->
+            addTrackRow(container, index + 1, item, item.timeLabel)
+        }
+    }
+
+    private fun addSection(container: LinearLayout, title: String) {
+        val titleView = TextView(this).apply {
+            text = title
+            setTextColor(lfmRed)
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.02f
+            setPadding(0, dp(4), 0, dp(5))
+        }
+        val lineView = View(this).apply {
+            setBackgroundColor(lfmRed)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(2)
+            )
+        }
+        container.addView(titleView)
+        container.addView(lineView)
+    }
+
+    private fun addTrackRow(
+        container: LinearLayout,
+        rankOrIndex: Any,
+        item: TrackItem,
+        rightLabel: String
+    ) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(7), 0, dp(7))
+        }
+        if (rankOrIndex is Int) {
+            val rank = TextView(this).apply {
+                text = rankOrIndex.toString()
+                setTextColor(muted)
+                textSize = 12f
+                width = dp(18)
+            }
+            row.addView(rank)
+        }
+        val image = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply {
+                marginEnd = dp(9)
+            }
+            setBackgroundColor(0xFFF0C0B8.toInt())
+            if (item.imageUrl.isNotBlank()) load(item.imageUrl) { crossfade(true) }
+        }
+        val meta = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val title = TextView(this).apply {
+            text = item.title.ifBlank { "未知曲目" }
+            setTextColor(lfmRedDark)
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+        val artist = TextView(this).apply {
+            text = item.artist.ifBlank { "未知歌手" }
+            setTextColor(muted)
+            textSize = 12f
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+        meta.addView(title)
+        meta.addView(artist)
+        val right = TextView(this).apply {
+            text = rightLabel
+            setTextColor(muted)
+            textSize = 11f
+        }
+        row.addView(image)
+        row.addView(meta)
+        row.addView(right)
+        container.addView(row)
+    }
+
+    private fun addArtistRow(container: LinearLayout, rank: Int, name: String, plays: String, imageUrl: String) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(7), 0, dp(7))
+        }
+        val rankView = TextView(this).apply {
+            text = rank.toString()
+            setTextColor(muted)
+            textSize = 12f
+            width = dp(18)
+        }
+        val image = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(9) }
+            setBackgroundColor(0xFFF0C0B8.toInt())
+            if (imageUrl.isNotBlank()) load(imageUrl) { crossfade(true) }
+        }
+        val meta = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val nameView = TextView(this).apply {
+            text = name
+            setTextColor(lfmRedDark)
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        val playsView = TextView(this).apply { text = plays; setTextColor(muted); textSize = 12f }
+        meta.addView(nameView)
+        meta.addView(playsView)
+        row.addView(rankView)
+        row.addView(image)
+        row.addView(meta)
+        container.addView(row)
+    }
+
+    private fun addAlbumGrid(container: LinearLayout, albums: List<AlbumItem>) {
+        val grid = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(8), 0, dp(4))
+        }
+        albums.forEach { album ->
+            val cell = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+            val image = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(72), dp(72))
+                setBackgroundColor(0xFFF0C0B8.toInt())
+                if (album.imageUrl.isNotBlank()) load(album.imageUrl) { crossfade(true) }
+            }
+            val name = TextView(this).apply {
+                text = album.name.ifBlank { "未知专辑" }
+                setTextColor(lfmRedDark)
+                textSize = 11f
+                typeface = Typeface.DEFAULT_BOLD
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            }
+            val artist = TextView(this).apply {
+                text = album.artist.ifBlank { "未知歌手" }
+                setTextColor(muted)
+                textSize = 10f
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            }
+            cell.addView(image)
+            cell.addView(name)
+            cell.addView(artist)
+            grid.addView(cell)
+        }
+        container.addView(grid)
     }
 
     private fun checkUpdate() {
@@ -124,26 +385,5 @@ class MainActivity : AppCompatActivity() {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         startActivity(intent)
-    }
-
-    private fun refreshStatus() {
-        val authorized = prefs.sessionKey.isNotBlank() &&
-            prefs.apiKey.isNotBlank() &&
-            prefs.apiSecret.isNotBlank()
-        findViewById<TextView>(R.id.status).text =
-            if (prefs.sessionKey.isNotBlank()) "已登录：${prefs.username}" else "未授权 last.fm"
-        findViewById<LinearLayout>(R.id.credentials).visibility =
-            if (authorized) View.GONE else View.VISIBLE
-        findViewById<Button>(R.id.edit_credentials).visibility =
-            if (authorized) View.VISIBLE else View.GONE
-        findViewById<Button>(R.id.auth).text =
-            if (authorized) "重新授权 last.fm" else "授权 last.fm"
-    }
-
-    private fun refreshDynamic() {
-        findViewById<TextView>(R.id.debug).text = DebugLog.text()
-        val history = ScrobbleHistory.list()
-        findViewById<TextView>(R.id.history).text =
-            if (history.isEmpty()) "（暂无同步记录）" else history.joinToString("\n")
     }
 }

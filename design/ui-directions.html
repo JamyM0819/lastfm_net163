@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>lastfm_net163 · 方向A 定稿</title>
+<style>
+  :root {
+    --lfm-red: #D51007;
+    --lfm-red-dark: #B00E06;
+    --ink: #1a1a1a;
+    --muted: #8a8a8a;
+    --bg: #f5f5f7;
+    --line: #e8e8ec;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #ececf0; color: var(--ink); padding: 32px 16px;
+  }
+  h1 { text-align: center; font-size: 22px; margin-bottom: 6px; }
+  .subtitle { text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+  .phone {
+    width: 300px; height: 720px; margin: 0 auto;
+    background: #000; border-radius: 40px; padding: 10px;
+    box-shadow: 0 18px 40px rgba(0,0,0,.22);
+  }
+  .screen { width: 100%; height: 100%; border-radius: 32px; overflow: hidden; background: #fff; position: relative; display: flex; flex-direction: column; }
+  .statusbar { height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; font-size: 11px; font-weight: 600; background: var(--lfm-red); color: #fff; flex-shrink: 0; }
+  .header {
+    background: var(--lfm-red); color: #fff;
+    padding: 12px 14px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .header .logo { font-size: 16px; font-weight: 800; letter-spacing: .3px; }
+  .header .logo span { opacity: .85; font-weight: 600; }
+
+  .avatar-wrap { position: relative; }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: #fff; border: 2px solid rgba(255,255,255,.9);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 16px; color: var(--lfm-red);
+    cursor: pointer; user-select: none; list-style: none;
+  }
+  .menu {
+    position: absolute; right: 0; top: 46px; width: 170px;
+    background: #fff; border-radius: 12px; box-shadow: 0 10px 26px rgba(0,0,0,.18);
+    overflow: hidden; z-index: 10;
+  }
+  .menu button {
+    display: block; width: 100%; padding: 12px 14px; border: none;
+    background: #fff; font-size: 13px; font-weight: 600; text-align: left;
+    color: var(--ink); cursor: pointer;
+  }
+  .menu button + button { border-top: 1px solid var(--line); }
+  .menu button:hover { background: #FDECEB; color: var(--lfm-red-dark); }
+
+  .scroll { overflow-y: auto; flex: 1; padding: 14px; background: #fff; }
+  .statuscard { border: 2px solid var(--lfm-red); border-radius: 12px; padding: 12px; margin-bottom: 14px; }
+  .statuscard .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--lfm-red); display: inline-block; margin-right: 6px; }
+  .statuscard .sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+
+  .section { margin-bottom: 16px; }
+  .section h2 {
+    font-size: 13px; font-weight: 800; color: var(--lfm-red);
+    border-bottom: 2px solid var(--lfm-red); padding-bottom: 5px; margin-bottom: 8px;
+    letter-spacing: .3px;
+  }
+  .row { display: flex; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .rank { width: 18px; color: var(--muted); font-size: 12px; flex-shrink: 0; }
+  .art {
+    width: 36px; height: 36px; border-radius: 6px; margin-right: 9px; flex-shrink: 0;
+    background: linear-gradient(135deg, #f0c0b8, #c0392b);
+  }
+  .meta { min-width: 0; flex: 1; }
+  .meta .t { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--lfm-red-dark); }
+  .meta .a { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .count { font-size: 11px; color: var(--muted); flex-shrink: 0; margin-left: 8px; }
+  .artists .art { border-radius: 50%; }
+  .albums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .albums .album { text-align: center; }
+  .albums .art { width: 100%; height: 56px; margin: 0 0 4px; }
+  .albums .t { font-size: 11px; font-weight: 700; color: var(--lfm-red-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .albums .a { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .note { margin-top: 24px; text-align: center; color: var(--muted); font-size: 12px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<!--
+方向 A 定稿 v2：
+- 右上角头像菜单：重新授权 / 修改凭据 / 开启通知使用权 / 检查更新。
+- 首页按 last.fm 官网风格展示：Recent Tracks、Top Artists、Top Albums、Top Tracks 四个区块。
+- 区块标题样式对齐 last.fm（红字 + 红色下边框），行样式对齐官网（小图 + 主标题红字 + 灰色副文本 + 计数）。
+- 头像占位为字母 M，实现时取 last.fm user.getInfo 头像。
+-->
+<h1>lastfm_net163 · 方向 A</h1>
+<p class="subtitle">头像菜单收纳全部入口 · 首页展示 last.fm 官网风格四区块</p>
+
+<div class="phone"><div class="screen">
+  <div class="statusbar"><span>6:36</span><span>5G ▮</span></div>
+  <div class="header">
+    <div class="logo">lastfm<span>_net163</span></div>
+    <div class="avatar-wrap">
+      <details>
+        <summary class="avatar">M</summary>
+        <div class="menu">
+          <button type="button">重新授权 last.fm</button>
+          <button type="button">修改凭据</button>
+          <button type="button">开启通知使用权</button>
+          <button type="button">检查更新</button>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div class="scroll">
+    <div class="statuscard">
+      <div><span class="dot"></span>已登录：<b>Miteality</b></div>
+      <div class="sub">last.fm 同步中</div>
+    </div>
+
+    <div class="section">
+      <h2>Recent Tracks</h2>
+      <div class="row"><div class="art"></div><div class="meta"><div class="t">Mean</div><div class="a">Taylor Swift</div></div><div class="count">3 mins</div></div>
+      <div class="row"><div class="art"></div><div class="meta"><div class="t">晴天</div><div class="a">周杰伦</div></div><div class="count">2 hrs</div></div>
+      <div class="row"><div class="art"></div><div class="meta"><div class="t">富士山下</div><div class="a">陈奕迅</div></div><div class="count">昨天</div></div>
+    </div>
+
+    <div class="section">
+      <h2>Top Artists</h2>
+      <div class="row artists"><span class="rank">1</span><div class="art"></div><div class="meta"><div class="t">Taylor Swift</div><div class="a">1,234 scrobbles</div></div></div>
+      <div class="row artists"><span class="rank">2</span><div class="art"></div><div class="meta"><div class="t">周杰伦</div><div class="a">1,002 scrobbles</div></div></div>
+    </div>
+
+    <div class="section">
+      <h2>Top Albums</h2>
+      <div class="albums">
+        <div class="album"><div class="art"></div><div class="t">1989</div><div class="a">Taylor Swift</div></div>
+        <div class="album"><div class="art"></div><div class="t">七里香</div><div class="a">周杰伦</div></div>
+        <div class="album"><div class="art"></div><div class="t">Strangers</div><div class="a">Eason Chan</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Top Tracks</h2>
+      <div class="row"><span class="rank">1</span><div class="art"></div><div class="meta"><div class="t">Mean</div><div class="a">Taylor Swift</div></div><div class="count">234</div></div>
+      <div class="row"><span class="rank">2</span><div class="art"></div><div class="meta"><div class="t">晴天</div><div class="a">周杰伦</div></div><div class="count">198</div></div>
+    </div>
+  </div>
+</div></div>
+
+<p class="note">
+  静态稿：数据为占位，正式实现时从 last.fm API 拉取真实 Recent Tracks / Top Artists / Top Albums / Top Tracks。<br>
+  头像占位为 M，实现时通过 user.getInfo 获取真实头像。
+</p>
+</body>
+</html>
