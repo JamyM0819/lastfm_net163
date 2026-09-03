@@ -16,7 +16,8 @@ class NetEaseClient(
         .build()
 ) {
     companion object {
-        private const val SEARCH_URL = "https://music.163.com/api/search/get/web"
+        private const val SEARCH_URL = "https://music.163.com/api/search/get"
+        private const val SONG_DETAIL_URL = "https://music.163.com/api/song/detail"
     }
 
     private val cache = ConcurrentHashMap<Pair<String, String>, Int>()
@@ -40,28 +41,48 @@ class NetEaseClient(
         val key = type to "${artist.trim().lowercase(Locale.ROOT)}|${title.trim().lowercase(Locale.ROOT)}"
         imageCache[key]?.let { return it }
         val result = try {
-            val json = search(artist, title, type)
-            val res = json.optJSONObject("result") ?: JSONObject()
-            when (type) {
-                1 -> {
-                    val songs = res.optJSONArray("songs") ?: JSONArray()
-                    bestSongImage(artist, title, songs)
-                }
+            val raw = when (type) {
+                1 -> searchTrackImage(artist, title)
                 10 -> {
-                    val albums = res.optJSONArray("albums") ?: JSONArray()
+                    val json = search(artist, title, 10)
+                    val albums = json.optJSONObject("result")?.optJSONArray("albums") ?: JSONArray()
                     if (albums.length() > 0) albums.optJSONObject(0)?.optString("picUrl").orEmpty() else ""
                 }
                 100 -> {
-                    val artists = res.optJSONArray("artists") ?: JSONArray()
+                    val json = search(artist, title, 100)
+                    val artists = json.optJSONObject("result")?.optJSONArray("artists") ?: JSONArray()
                     if (artists.length() > 0) artists.optJSONObject(0)?.optString("picUrl").orEmpty() else ""
                 }
                 else -> ""
             }
+            raw.replaceFirst("http://", "https://")
         } catch (e: Exception) {
             ""
         }
         imageCache[key] = result
         return result
+    }
+
+    private fun searchTrackImage(artist: String, title: String): String {
+        val json = search(artist, title, 1)
+        val songs = json.optJSONObject("result")?.optJSONArray("songs") ?: JSONArray()
+        val id = bestSongId(artist, title, songs)
+        if (id <= 0L) return ""
+        val url = SONG_DETAIL_URL.toHttpUrl().newBuilder()
+            .addQueryParameter("ids", "[$id]")
+            .addQueryParameter("id", id.toString())
+            .build()
+        val request = Request.Builder().url(url)
+            .header("User-Agent", "Mozilla/5.0 (Linux; Android 11)")
+            .header("Referer", "https://music.163.com/")
+            .build()
+        httpClient.newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) return ""
+            val detail = JSONObject(resp.body?.string() ?: "")
+            val songsDetail = detail.optJSONArray("songs") ?: JSONArray()
+            if (songsDetail.length() == 0) return ""
+            return songsDetail.optJSONObject(0)?.optJSONObject("album")?.optString("picUrl").orEmpty()
+        }
     }
 
     private fun search(artist: String, title: String, type: Int): JSONObject {
@@ -82,10 +103,10 @@ class NetEaseClient(
         }
     }
 
-    private fun bestSongImage(artist: String, title: String, songs: JSONArray): String {
+    private fun bestSongId(artist: String, title: String, songs: JSONArray): Long {
         val wantedTitle = title.trim().lowercase(Locale.ROOT)
         val wantedArtist = artist.trim().lowercase(Locale.ROOT)
-        var bestUrl = ""
+        var bestId = 0L
         var bestScore = 0
         for (i in 0 until songs.length()) {
             val song = songs.optJSONObject(i) ?: continue
@@ -109,11 +130,10 @@ class NetEaseClient(
             }
             if (score > bestScore) {
                 bestScore = score
-                bestUrl = song.optJSONObject("album")?.optString("picUrl").orEmpty()
-                    .ifBlank { artists.optJSONObject(0)?.optString("picUrl").orEmpty() }
+                bestId = song.optLong("id")
             }
         }
-        return bestUrl
+        return bestId
     }
 
     fun bestMatchMs(artist: String, title: String, songs: JSONArray): Int {
