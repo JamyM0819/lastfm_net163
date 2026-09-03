@@ -1,6 +1,7 @@
 package com.lastfm.net163
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -13,6 +14,9 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
+import java.io.File
+import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
     private lateinit var prefs: Prefs
@@ -66,6 +70,10 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
         }
 
+        findViewById<Button>(R.id.check_update).setOnClickListener {
+            checkUpdate()
+        }
+
         findViewById<Button>(R.id.clear_history).setOnClickListener {
             ScrobbleHistory.clear()
             refreshDynamic()
@@ -93,6 +101,29 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         handler.removeCallbacks(refreshRunnable)
         super.onPause()
+    }
+
+    private fun checkUpdate() {
+        Toast.makeText(this, "开始下载更新…", Toast.LENGTH_SHORT).show()
+        thread {
+            try {
+                val apk = UpdateChecker.downloadApk(cacheDir)
+                runOnUiThread { installApk(apk) }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "更新失败：${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun installApk(apk: File) {
+        val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", apk)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(intent)
     }
 
     private fun refreshStatus() {
