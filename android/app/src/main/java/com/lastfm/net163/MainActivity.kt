@@ -198,16 +198,22 @@ class MainActivity : AppCompatActivity() {
                 val username = prefs.username
 
                 val recent = client.getRecentTracks(username, 5).map { item ->
-                    item.copy(imageUrl = netease.searchImageUrl(item.artist, item.title, 1).ifBlank { item.imageUrl })
+                    val img = netease.searchImageUrl(item.artist, item.title, 1)
+                        .ifBlank { netease.searchImageUrl("", item.artist, 100) }
+                    item.copy(imageUrl = img.ifBlank { item.imageUrl })
                 }
                 val artists = client.getTopArtists(username, 5).map { item ->
                     item.copy(imageUrl = netease.searchImageUrl("", item.name, 100).ifBlank { item.imageUrl })
                 }
                 val albums = client.getTopAlbums(username, 3).map { item ->
-                    item.copy(imageUrl = netease.searchImageUrl(item.artist, item.name, 10).ifBlank { item.imageUrl })
+                    val img = netease.searchImageUrl(item.artist, item.name, 10)
+                        .ifBlank { netease.searchImageUrl("", item.artist, 100) }
+                    item.copy(imageUrl = img.ifBlank { item.imageUrl })
                 }
                 val tracks = client.getTopTracks(username, 5).map { item ->
-                    item.copy(imageUrl = netease.searchImageUrl(item.artist, item.title, 1).ifBlank { item.imageUrl })
+                    val img = netease.searchImageUrl(item.artist, item.title, 1)
+                        .ifBlank { netease.searchImageUrl("", item.artist, 100) }
+                    item.copy(imageUrl = img.ifBlank { item.imageUrl })
                 }
 
                 runOnUiThread {
