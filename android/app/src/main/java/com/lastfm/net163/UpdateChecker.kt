@@ -10,6 +10,12 @@ object UpdateChecker {
     const val APK_URL =
         "https://raw.githubusercontent.com/JamyM0819/lastfm_net163/main/apk/app-debug.apk"
 
+    private val MIRROR_URLS = listOf(
+        "https://ghproxy.net/https://raw.githubusercontent.com/JamyM0819/lastfm_net163/main/apk/app-debug.apk",
+        "https://gh-proxy.com/https://raw.githubusercontent.com/JamyM0819/lastfm_net163/main/apk/app-debug.apk",
+        APK_URL
+    )
+
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
@@ -24,7 +30,23 @@ object UpdateChecker {
         if (!dir.exists()) dir.mkdirs()
         val out = File(dir, "app-debug.apk")
 
-        val request = Request.Builder().url(APK_URL)
+        var lastError: Exception? = null
+        for (url in MIRROR_URLS) {
+            try {
+                return downloadFrom(url, out, onProgress)
+            } catch (e: Exception) {
+                lastError = e
+            }
+        }
+        throw lastError ?: RuntimeException("下载失败")
+    }
+
+    private fun downloadFrom(
+        url: String,
+        out: File,
+        onProgress: ((downloadedBytes: Long, totalBytes: Long) -> Unit)?
+    ): File {
+        val request = Request.Builder().url(url)
             .header("User-Agent", "Mozilla/5.0 (Linux; Android 11) lastfm_net163")
             .build()
         httpClient.newCall(request).execute().use { resp ->
