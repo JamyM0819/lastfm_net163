@@ -410,13 +410,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkUpdate() {
         val dialog = ProgressDialog(this).apply {
-            setMessage("正在下载更新，请稍候…")
+            setMessage("正在下载更新，请稍候… 0%")
             setCancelable(false)
             show()
         }
         thread {
             try {
-                val apk = UpdateChecker.downloadApk(cacheDir)
+                val apk = UpdateChecker.downloadApk(cacheDir) { downloaded, total ->
+                    if (total > 0) {
+                        val percent = (downloaded * 100 / total).toInt()
+                        runOnUiThread { dialog.setMessage("正在下载更新，请稍候… $percent%") }
+                    }
+                }
                 runOnUiThread {
                     dialog.dismiss()
                     installApk(apk)

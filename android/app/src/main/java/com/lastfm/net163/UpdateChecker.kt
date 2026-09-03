@@ -13,14 +13,20 @@ object UpdateChecker {
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
+        .callTimeout(90, TimeUnit.SECONDS)
         .build()
 
-    fun downloadApk(cacheDir: File, onProgress: ((downloadedBytes: Long) -> Unit)? = null): File {
+    fun downloadApk(
+        cacheDir: File,
+        onProgress: ((downloadedBytes: Long, totalBytes: Long) -> Unit)? = null
+    ): File {
         val dir = File(cacheDir, "apk")
         if (!dir.exists()) dir.mkdirs()
         val out = File(dir, "app-debug.apk")
 
-        val request = Request.Builder().url(APK_URL).build()
+        val request = Request.Builder().url(APK_URL)
+            .header("User-Agent", "Mozilla/5.0 (Linux; Android 11) lastfm_net163")
+            .build()
         httpClient.newCall(request).execute().use { resp ->
             if (!resp.isSuccessful) {
                 throw RuntimeException("下载失败：HTTP ${resp.code}")
@@ -36,7 +42,7 @@ object UpdateChecker {
                         if (read == -1) break
                         output.write(buffer, 0, read)
                         downloaded += read
-                        onProgress?.invoke(downloaded)
+                        onProgress?.invoke(downloaded, total)
                     }
                 }
             }
