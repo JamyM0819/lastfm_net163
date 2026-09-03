@@ -7,13 +7,13 @@ import java.io.FileOutputStream
 import java.util.concurrent.TimeUnit
 
 object UpdateChecker {
-    private const val APK_URL =
+    const val APK_URL =
         "https://raw.githubusercontent.com/JamyM0819/lastfm_net163/main/apk/app-debug.apk"
 
     private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .callTimeout(90, TimeUnit.SECONDS)
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .callTimeout(30, TimeUnit.SECONDS)
         .build()
 
     fun downloadApk(

@@ -410,16 +410,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkUpdate() {
         val dialog = ProgressDialog(this).apply {
-            setMessage("正在下载更新，请稍候… 0%")
+            setMessage("正在下载更新，请稍候…")
             setCancelable(false)
             show()
         }
         thread {
             try {
                 val apk = UpdateChecker.downloadApk(cacheDir) { downloaded, total ->
-                    if (total > 0) {
-                        val percent = (downloaded * 100 / total).toInt()
-                        runOnUiThread { dialog.setMessage("正在下载更新，请稍候… $percent%") }
+                    runOnUiThread {
+                        val msg = if (total > 0) {
+                            "正在下载更新… ${(downloaded * 100 / total).toInt()}%"
+                        } else {
+                            "正在下载更新… ${downloaded / 1024} KB"
+                        }
+                        dialog.setMessage(msg)
                     }
                 }
                 runOnUiThread {
@@ -429,7 +433,8 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 runOnUiThread {
                     dialog.dismiss()
-                    Toast.makeText(this, "更新失败：${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "App 内下载失败，已改用浏览器下载", Toast.LENGTH_LONG).show()
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UpdateChecker.APK_URL)))
                 }
             }
         }
