@@ -53,6 +53,13 @@ class MainActivity : AppCompatActivity() {
     private var albumPeriod = "overall"
     private var trackPeriod = "overall"
 
+    private var recentItems: List<TrackItem> = emptyList()
+    private var artistsItems: List<ArtistItem> = emptyList()
+    private var albumsItems: List<AlbumItem> = emptyList()
+    private var tracksItems: List<TrackItem> = emptyList()
+
+    private val netease = NetEaseClient()
+
     private data class PeriodOption(val label: String, val apiValue: String)
 
     private val periodOptions = listOf(
@@ -214,30 +221,13 @@ class MainActivity : AppCompatActivity() {
         thread {
             try {
                 val client = LastfmClient(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
-                val netease = NetEaseClient()
                 val username = prefs.username
-
-                val recent = client.getRecentTracks(username, 5).map { item ->
-                    val img = netease.searchImageUrl(item.artist, item.title, 1)
-                        .ifBlank { netease.searchImageUrl("", item.artist, 100) }
-                    item.copy(imageUrl = img.ifBlank { item.imageUrl })
-                }
-                val artists = client.getTopArtists(username, 5, artistPeriod).map { item ->
-                    item.copy(imageUrl = netease.searchImageUrl("", item.name, 100).ifBlank { item.imageUrl })
-                }
-                val albums = client.getTopAlbums(username, 3, albumPeriod).map { item ->
-                    val img = netease.searchImageUrl(item.artist, item.name, 10)
-                        .ifBlank { netease.searchImageUrl("", item.artist, 100) }
-                    item.copy(imageUrl = img.ifBlank { item.imageUrl })
-                }
-                val tracks = client.getTopTracks(username, 5, trackPeriod).map { item ->
-                    val img = netease.searchImageUrl(item.artist, item.title, 1)
-                        .ifBlank { netease.searchImageUrl("", item.artist, 100) }
-                    item.copy(imageUrl = img.ifBlank { item.imageUrl })
-                }
-
+                recentItems = fetchRecent(client, username)
+                artistsItems = fetchArtists(client, username)
+                albumsItems = fetchAlbums(client, username)
+                tracksItems = fetchTracks(client, username)
                 runOnUiThread {
-                    renderDashboard(recent, artists, albums, tracks)
+                    renderDashboard()
                     onDone?.invoke()
                 }
             } catch (e: Exception) {
@@ -249,34 +239,118 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun renderDashboard(
-        recent: List<TrackItem>,
-        artists: List<ArtistItem>,
-        albums: List<AlbumItem>,
-        tracks: List<TrackItem>
-    ) {
+    private fun refreshRecent() {
+        if (prefs.apiKey.isBlank() || prefs.username.isBlank()) return
+        thread {
+            try {
+                val client = LastfmClient(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
+                recentItems = fetchRecent(client, prefs.username)
+                runOnUiThread { renderDashboard() }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "刷新 Recent Tracks 失败：${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun refreshArtists() {
+        if (prefs.apiKey.isBlank() || prefs.username.isBlank()) return
+        thread {
+            try {
+                val client = LastfmClient(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
+                artistsItems = fetchArtists(client, prefs.username)
+                runOnUiThread { renderDashboard() }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "刷新 Top Artists 失败：${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun refreshAlbums() {
+        if (prefs.apiKey.isBlank() || prefs.username.isBlank()) return
+        thread {
+            try {
+                val client = LastfmClient(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
+                albumsItems = fetchAlbums(client, prefs.username)
+                runOnUiThread { renderDashboard() }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "刷新 Top Albums 失败：${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun refreshTracks() {
+        if (prefs.apiKey.isBlank() || prefs.username.isBlank()) return
+        thread {
+            try {
+                val client = LastfmClient(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
+                tracksItems = fetchTracks(client, prefs.username)
+                runOnUiThread { renderDashboard() }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "刷新 Top Tracks 失败：${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun fetchRecent(client: LastfmClient, username: String): List<TrackItem> {
+        return client.getRecentTracks(username, 5).map { item ->
+            val img = netease.searchImageUrl(item.artist, item.title, 1)
+                .ifBlank { netease.searchImageUrl("", item.artist, 100) }
+            item.copy(imageUrl = img.ifBlank { item.imageUrl })
+        }
+    }
+
+    private fun fetchArtists(client: LastfmClient, username: String): List<ArtistItem> {
+        return client.getTopArtists(username, 5, artistPeriod).map { item ->
+            item.copy(imageUrl = netease.searchImageUrl("", item.name, 100).ifBlank { item.imageUrl })
+        }
+    }
+
+    private fun fetchAlbums(client: LastfmClient, username: String): List<AlbumItem> {
+        return client.getTopAlbums(username, 3, albumPeriod).map { item ->
+            val img = netease.searchImageUrl(item.artist, item.name, 10)
+                .ifBlank { netease.searchImageUrl("", item.artist, 100) }
+            item.copy(imageUrl = img.ifBlank { item.imageUrl })
+        }
+    }
+
+    private fun fetchTracks(client: LastfmClient, username: String): List<TrackItem> {
+        return client.getTopTracks(username, 5, trackPeriod).map { item ->
+            val img = netease.searchImageUrl(item.artist, item.title, 1)
+                .ifBlank { netease.searchImageUrl("", item.artist, 100) }
+            item.copy(imageUrl = img.ifBlank { item.imageUrl })
+        }
+    }
+
+    private fun renderDashboard() {
         val container = findViewById<LinearLayout>(R.id.dashboard)
-        // 清空所有 section
         for (i in container.childCount - 1 downTo 0) {
             container.removeViewAt(i)
         }
 
-        addSection(container, "Recent Tracks")
-        recent.forEachIndexed { _, item -> addTrackRow(container, null, item, item.timeLabel) }
+        addSection(container, "Recent Tracks", onRefresh = { refreshRecent() })
+        recentItems.forEachIndexed { _, item -> addTrackRow(container, null, item, item.timeLabel) }
 
         addSection(container, "Top Artists")
-        addPeriodSelector(container, artistPeriod) { p -> artistPeriod = p; reload() }
-        artists.forEachIndexed { index, item ->
+        addPeriodSelector(container, artistPeriod) { p -> artistPeriod = p; refreshArtists() }
+        artistsItems.forEachIndexed { index, item ->
             addArtistRow(container, index + 1, item.name, "${item.scrobbles} scrobbles", item.imageUrl)
         }
 
         addSection(container, "Top Albums")
-        addPeriodSelector(container, albumPeriod) { p -> albumPeriod = p; reload() }
-        addAlbumGrid(container, albums)
+        addPeriodSelector(container, albumPeriod) { p -> albumPeriod = p; refreshAlbums() }
+        addAlbumGrid(container, albumsItems)
 
         addSection(container, "Top Tracks")
-        addPeriodSelector(container, trackPeriod) { p -> trackPeriod = p; reload() }
-        tracks.forEachIndexed { index, item ->
+        addPeriodSelector(container, trackPeriod) { p -> trackPeriod = p; refreshTracks() }
+        tracksItems.forEachIndexed { index, item ->
             addTrackRow(container, index + 1, item, item.timeLabel)
         }
     }
@@ -314,7 +388,11 @@ class MainActivity : AppCompatActivity() {
         container.addView(row)
     }
 
-    private fun addSection(container: LinearLayout, title: String) {
+    private fun addSection(container: LinearLayout, title: String, onRefresh: (() -> Unit)? = null) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
         val titleView = TextView(this).apply {
             text = title
             setTextColor(lfmRed)
@@ -322,14 +400,27 @@ class MainActivity : AppCompatActivity() {
             typeface = Typeface.DEFAULT_BOLD
             letterSpacing = 0.02f
             setPadding(0, dp(4), 0, dp(5))
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
+        row.addView(titleView)
+        if (onRefresh != null) {
+            val refreshView = TextView(this).apply {
+                text = "刷新"
+                setTextColor(lfmRed)
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(dp(10), dp(4), dp(0), dp(5))
+                setOnClickListener { onRefresh() }
+            }
+            row.addView(refreshView)
+        }
+        container.addView(row)
         val lineView = View(this).apply {
             setBackgroundColor(lfmRed)
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(2)
             )
         }
-        container.addView(titleView)
         container.addView(lineView)
     }
 
