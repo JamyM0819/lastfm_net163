@@ -22,6 +22,7 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupMenu
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -59,6 +60,8 @@ class MainActivity : AppCompatActivity() {
     private var tracksItems: List<TrackItem> = emptyList()
 
     private val netease = NetEaseClient()
+
+    private val refreshingSections = mutableSetOf<String>()
 
     private data class PeriodOption(val label: String, val apiValue: String)
 
@@ -241,13 +244,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshRecent() {
         if (prefs.apiKey.isBlank() || prefs.username.isBlank()) return
+        refreshingSections.add("recent")
+        renderDashboard()
         thread {
             try {
                 val client = LastfmClient(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
                 recentItems = fetchRecent(client, prefs.username)
-                runOnUiThread { renderDashboard() }
+                runOnUiThread {
+                    refreshingSections.remove("recent")
+                    renderDashboard()
+                }
             } catch (e: Exception) {
                 runOnUiThread {
+                    refreshingSections.remove("recent")
+                    renderDashboard()
                     Toast.makeText(this, "刷新 Recent Tracks 失败：${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
@@ -256,13 +266,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshArtists() {
         if (prefs.apiKey.isBlank() || prefs.username.isBlank()) return
+        refreshingSections.add("artists")
+        renderDashboard()
         thread {
             try {
                 val client = LastfmClient(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
                 artistsItems = fetchArtists(client, prefs.username)
-                runOnUiThread { renderDashboard() }
+                runOnUiThread {
+                    refreshingSections.remove("artists")
+                    renderDashboard()
+                }
             } catch (e: Exception) {
                 runOnUiThread {
+                    refreshingSections.remove("artists")
+                    renderDashboard()
                     Toast.makeText(this, "刷新 Top Artists 失败：${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
@@ -271,13 +288,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshAlbums() {
         if (prefs.apiKey.isBlank() || prefs.username.isBlank()) return
+        refreshingSections.add("albums")
+        renderDashboard()
         thread {
             try {
                 val client = LastfmClient(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
                 albumsItems = fetchAlbums(client, prefs.username)
-                runOnUiThread { renderDashboard() }
+                runOnUiThread {
+                    refreshingSections.remove("albums")
+                    renderDashboard()
+                }
             } catch (e: Exception) {
                 runOnUiThread {
+                    refreshingSections.remove("albums")
+                    renderDashboard()
                     Toast.makeText(this, "刷新 Top Albums 失败：${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
@@ -286,13 +310,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshTracks() {
         if (prefs.apiKey.isBlank() || prefs.username.isBlank()) return
+        refreshingSections.add("tracks")
+        renderDashboard()
         thread {
             try {
                 val client = LastfmClient(prefs.apiKey, prefs.apiSecret, prefs.sessionKey)
                 tracksItems = fetchTracks(client, prefs.username)
-                runOnUiThread { renderDashboard() }
+                runOnUiThread {
+                    refreshingSections.remove("tracks")
+                    renderDashboard()
+                }
             } catch (e: Exception) {
                 runOnUiThread {
+                    refreshingSections.remove("tracks")
+                    renderDashboard()
                     Toast.makeText(this, "刷新 Top Tracks 失败：${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
@@ -335,20 +366,20 @@ class MainActivity : AppCompatActivity() {
             container.removeViewAt(i)
         }
 
-        addSection(container, "Recent Tracks", onRefresh = { refreshRecent() })
+        addSection(container, "Recent Tracks", refreshing = "recent" in refreshingSections, onRefresh = { refreshRecent() })
         recentItems.forEachIndexed { _, item -> addTrackRow(container, null, item, item.timeLabel) }
 
-        addSection(container, "Top Artists")
+        addSection(container, "Top Artists", refreshing = "artists" in refreshingSections)
         addPeriodSelector(container, artistPeriod) { p -> artistPeriod = p; refreshArtists() }
         artistsItems.forEachIndexed { index, item ->
             addArtistRow(container, index + 1, item.name, "${item.scrobbles} scrobbles", item.imageUrl)
         }
 
-        addSection(container, "Top Albums")
+        addSection(container, "Top Albums", refreshing = "albums" in refreshingSections)
         addPeriodSelector(container, albumPeriod) { p -> albumPeriod = p; refreshAlbums() }
         addAlbumGrid(container, albumsItems)
 
-        addSection(container, "Top Tracks")
+        addSection(container, "Top Tracks", refreshing = "tracks" in refreshingSections)
         addPeriodSelector(container, trackPeriod) { p -> trackPeriod = p; refreshTracks() }
         tracksItems.forEachIndexed { index, item ->
             addTrackRow(container, index + 1, item, item.timeLabel)
@@ -388,7 +419,12 @@ class MainActivity : AppCompatActivity() {
         container.addView(row)
     }
 
-    private fun addSection(container: LinearLayout, title: String, onRefresh: (() -> Unit)? = null) {
+    private fun addSection(
+        container: LinearLayout,
+        title: String,
+        refreshing: Boolean = false,
+        onRefresh: (() -> Unit)? = null
+    ) {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -403,7 +439,13 @@ class MainActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
         row.addView(titleView)
-        if (onRefresh != null) {
+        if (refreshing) {
+            val progress = ProgressBar(this).apply {
+                isIndeterminate = true
+                layoutParams = LinearLayout.LayoutParams(dp(20), dp(20))
+            }
+            row.addView(progress)
+        } else if (onRefresh != null) {
             val refreshView = TextView(this).apply {
                 text = "刷新"
                 setTextColor(lfmRed)
