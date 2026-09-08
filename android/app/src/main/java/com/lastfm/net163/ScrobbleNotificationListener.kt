@@ -21,6 +21,7 @@ class ScrobbleNotificationListener : NotificationListenerService() {
     @Volatile private var mediaController: MediaController? = null
     @Volatile private var playbackState: PlaybackState? = null
     @Volatile private var mediaDurationSec: Int = 0
+    @Volatile private var mediaAlbum: String = ""
     private var currentTrack: Track? = null
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { r ->
         Thread(r, "lastfm-net163-worker").apply { isDaemon = true }
@@ -35,6 +36,7 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         override fun onMetadataChanged(metadata: MediaMetadata?) {
             val ms = metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0
             mediaDurationSec = (ms / 1000).toInt()
+            mediaAlbum = metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM).orEmpty()
         }
     }
 
@@ -51,6 +53,7 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         c.playbackState?.let { playbackState = it }
         val ms = c.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0
         mediaDurationSec = (ms / 1000).toInt()
+        mediaAlbum = c.metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM).orEmpty()
     }
 
     fun configure(apiKey: String, apiSecret: String, sessionKey: String) {
@@ -94,7 +97,10 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         DebugLog.append("POST title=$title text=$text mediaToken=true playing=$playing")
         executor.execute {
             val parsed = NotificationParser.parse(title, text, subText, playing)
-            val track = enrich(parsed)
+            val withAlbum = parsed?.let {
+                if (it.album.isBlank() && mediaAlbum.isNotBlank()) it.copy(album = mediaAlbum) else it
+            }
+            val track = enrich(withAlbum)
             currentTrack = track
             if (tracker.onTrack(track)) {
                 track?.let { submit(it) }
