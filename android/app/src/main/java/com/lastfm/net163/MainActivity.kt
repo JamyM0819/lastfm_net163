@@ -55,6 +55,7 @@ class MainActivity : AppCompatActivity() {
     private var trackPeriod = "overall"
 
     private var recentLimit = 5
+    private var artistsLimit = 5
     private var albumsLimit = 3
     private var tracksLimit = 5
 
@@ -343,7 +344,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun fetchArtists(client: LastfmClient, username: String): List<ArtistItem> {
-        return client.getTopArtists(username, 5, artistPeriod).map { item ->
+        return client.getTopArtists(username, artistsLimit, artistPeriod).map { item ->
             item.copy(imageUrl = netease.searchImageUrl("", item.name, 100).ifBlank { item.imageUrl })
         }
     }
@@ -376,6 +377,7 @@ class MainActivity : AppCompatActivity() {
 
         addSection(container, "Top Artists", refreshing = "artists" in refreshingSections)
         addPeriodSelector(container, artistPeriod) { p -> artistPeriod = p; refreshArtists() }
+        addCountSelector(container, artistsLimit, listOf(5, 10)) { artistsLimit = it; refreshArtists() }
         artistsItems.forEachIndexed { index, item ->
             addArtistRow(container, index + 1, item.name, "${item.scrobbles} scrobbles", item.imageUrl)
         }
