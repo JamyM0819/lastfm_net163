@@ -54,6 +54,10 @@ class MainActivity : AppCompatActivity() {
     private var albumPeriod = "overall"
     private var trackPeriod = "overall"
 
+    private var recentLimit = 5
+    private var albumsLimit = 3
+    private var tracksLimit = 5
+
     private var recentItems: List<TrackItem> = emptyList()
     private var artistsItems: List<ArtistItem> = emptyList()
     private var albumsItems: List<AlbumItem> = emptyList()
@@ -331,7 +335,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun fetchRecent(client: LastfmClient, username: String): List<TrackItem> {
-        return client.getRecentTracks(username, 5).map { item ->
+        return client.getRecentTracks(username, recentLimit).map { item ->
             val img = netease.searchImageUrl(item.artist, item.title, 1)
                 .ifBlank { netease.searchImageUrl("", item.artist, 100) }
             item.copy(imageUrl = img.ifBlank { item.imageUrl })
@@ -345,7 +349,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun fetchAlbums(client: LastfmClient, username: String): List<AlbumItem> {
-        return client.getTopAlbums(username, 3, albumPeriod).map { item ->
+        return client.getTopAlbums(username, albumsLimit, albumPeriod).map { item ->
             val img = netease.searchImageUrl(item.artist, item.name, 10)
                 .ifBlank { netease.searchImageUrl("", item.artist, 100) }
             item.copy(imageUrl = img.ifBlank { item.imageUrl })
@@ -353,7 +357,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun fetchTracks(client: LastfmClient, username: String): List<TrackItem> {
-        return client.getTopTracks(username, 5, trackPeriod).map { item ->
+        return client.getTopTracks(username, tracksLimit, trackPeriod).map { item ->
             val img = netease.searchImageUrl(item.artist, item.title, 1)
                 .ifBlank { netease.searchImageUrl("", item.artist, 100) }
             item.copy(imageUrl = img.ifBlank { item.imageUrl })
@@ -367,6 +371,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         addSection(container, "Recent Tracks", refreshing = "recent" in refreshingSections, onRefresh = { refreshRecent() })
+        addCountSelector(container, recentLimit, listOf(5, 10)) { recentLimit = it; refreshRecent() }
         recentItems.forEachIndexed { _, item -> addTrackRow(container, null, item, item.timeLabel) }
 
         addSection(container, "Top Artists", refreshing = "artists" in refreshingSections)
@@ -377,10 +382,12 @@ class MainActivity : AppCompatActivity() {
 
         addSection(container, "Top Albums", refreshing = "albums" in refreshingSections)
         addPeriodSelector(container, albumPeriod) { p -> albumPeriod = p; refreshAlbums() }
+        addCountSelector(container, albumsLimit, listOf(3, 6)) { albumsLimit = it; refreshAlbums() }
         addAlbumGrid(container, albumsItems)
 
         addSection(container, "Top Tracks", refreshing = "tracks" in refreshingSections)
         addPeriodSelector(container, trackPeriod) { p -> trackPeriod = p; refreshTracks() }
+        addCountSelector(container, tracksLimit, listOf(5, 10)) { tracksLimit = it; refreshTracks() }
         tracksItems.forEachIndexed { index, item ->
             addTrackRow(container, index + 1, item, item.timeLabel)
         }
@@ -409,6 +416,40 @@ class MainActivity : AppCompatActivity() {
                 }
                 setOnClickListener {
                     if (!selected) onSelect(option.apiValue)
+                }
+            }
+            val params = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { marginEnd = dp(6) }
+            row.addView(chip, params)
+        }
+        container.addView(row)
+    }
+
+    private fun addCountSelector(
+        container: LinearLayout,
+        current: Int,
+        options: List<Int>,
+        onSelect: (Int) -> Unit
+    ) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(4), 0, dp(8))
+        }
+        options.forEach { option ->
+            val selected = option == current
+            val chip = TextView(this).apply {
+                text = "${option}条"
+                textSize = 11f
+                setPadding(dp(10), dp(5), dp(10), dp(5))
+                setTextColor(if (selected) Color.WHITE else lfmRedDark)
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(12).toFloat()
+                    setColor(if (selected) lfmRed else Color.WHITE)
+                    setStroke(dp(1), lfmRed)
+                }
+                setOnClickListener {
+                    if (!selected) onSelect(option)
                 }
             }
             val params = LinearLayout.LayoutParams(
