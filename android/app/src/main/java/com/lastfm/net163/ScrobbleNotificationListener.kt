@@ -22,6 +22,7 @@ class ScrobbleNotificationListener : NotificationListenerService() {
     @Volatile private var playbackState: PlaybackState? = null
     @Volatile private var mediaDurationSec: Int = 0
     @Volatile private var mediaAlbum: String = ""
+    @Volatile private var mediaId: String = ""
     private var currentTrack: Track? = null
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { r ->
         Thread(r, "lastfm-net163-worker").apply { isDaemon = true }
@@ -37,6 +38,11 @@ class ScrobbleNotificationListener : NotificationListenerService() {
             val ms = metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0
             mediaDurationSec = (ms / 1000).toInt()
             mediaAlbum = metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM).orEmpty()
+            val id = metadata?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID).orEmpty()
+            if (id.isNotBlank() && id != mediaId) {
+                mediaId = id
+                DebugLog.append("MEDIA_ID=$id")
+            }
         }
     }
 
@@ -51,9 +57,11 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         mediaController = c
         // 保留上次已知状态，等新 controller 的回调到达后再更新。
         c.playbackState?.let { playbackState = it }
-        val ms = c.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0
+        val md = c.metadata
+        val ms = md?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0
         mediaDurationSec = (ms / 1000).toInt()
-        mediaAlbum = c.metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM).orEmpty()
+        mediaAlbum = md?.getString(MediaMetadata.METADATA_KEY_ALBUM).orEmpty()
+        mediaId = md?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID).orEmpty()
     }
 
     fun configure(apiKey: String, apiSecret: String, sessionKey: String) {
@@ -94,18 +102,70 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         }
         attachController(token)
         val playing = isPlaying()
+        val miuiMedia = try {
+            extras.getString("miui.focus.param.media")
+        } catch (e: Exception) {
+            null
+        }
         DebugLog.append("POST title=$title text=$text mediaToken=true playing=$playing")
         executor.execute {
             val parsed = NotificationParser.parse(title, text, subText, playing)
             val withAlbum = parsed?.let {
                 if (it.album.isBlank() && mediaAlbum.isNotBlank()) it.copy(album = mediaAlbum) else it
             }
-            val track = enrich(withAlbum)
+            val canonical = canonicalize(withAlbum, mediaId, miuiMedia)
+            val track = enrich(canonical)
             currentTrack = track
             if (tracker.onTrack(track)) {
                 track?.let { submit(it) }
             }
         }
+    }
+
+    /**
+     * 用网易云官方曲名替换通知里“原名 (译名)”的合成标题，和电脑端记录方式对齐：
+     * 1) MediaSession/MIUI 扩展里有曲目 ID → song/detail 直接取官方 name（主路径）；
+     * 2) 没有 ID → 搜索 + song/detail 的 name/alias 整串验证后才剥离（回退路径）；
+     * 3) 都失败则保留通知原文，绝不按括号盲切，避免误伤 "(Live)" 这类原名。
+     */
+    private fun canonicalize(track: Track?, mediaIdHint: String?, miuiExtra: String?): Track? {
+        if (track == null) {
+            clock.reset()
+            return null
+        }
+        val client = netease ?: return track
+        val id = NetEaseClient.idFromMediaId(mediaIdHint)
+            ?: NetEaseClient.idFromShareText(miuiExtra)
+        var source = "none"
+        var canonical: CanonicalSong? = null
+        if (id != null) {
+            val byId = client.getTrackById(id)
+            if (byId != null && NetEaseClient.isCompositeTitle(track.title, byId.title)) {
+                canonical = byId
+                source = "id"
+            }
+        }
+        if (canonical == null) {
+            val searched = client.resolveCanonical(track.artist, track.title)
+            if (searched != null) {
+                canonical = searched
+                source = "search"
+            }
+        }
+        if (canonical == null) {
+            DebugLog.append("RESOLVE src=none keep=${track.title}")
+            return track
+        }
+        val resolved = track.copy(
+            title = canonical.title,
+            artist = canonical.artist.ifBlank { track.artist },
+            album = canonical.album.ifBlank { track.album },
+            durationSeconds = if (canonical.durationMs > 0) canonical.durationMs / 1000 else track.durationSeconds
+        )
+        if (resolved.title != track.title) {
+            DebugLog.append("RESOLVE src=$source raw=${track.title} -> ${resolved.title}")
+        }
+        return resolved
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
@@ -122,6 +182,7 @@ class ScrobbleNotificationListener : NotificationListenerService() {
         mediaController?.unregisterCallback(controllerCallback)
         mediaController = null
         playbackState = null
+        mediaId = ""
         executor.execute {
             currentTrack = null
             tracker.onTrack(null)
