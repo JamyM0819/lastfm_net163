@@ -12,6 +12,7 @@ from .lastfm import LastfmClient, LastfmError
 from .local_library import LocalLibrary
 from .ncm_playing import NcmPlayingReader
 from .net163 import NetEaseClient
+from .pending import PendingQueue, PendingScrobble
 from .playback_clock import PlaybackClock
 from .scrobbler import ScrobbleTracker, Track
 from .smtc import SmtcListener
@@ -134,6 +135,7 @@ async def run_once(
     library: LocalLibrary | None = None,
     ncm: NcmPlayingReader | None = None,
     album_memo: dict[tuple[str, str], str] | None = None,
+    pending: PendingQueue | None = None,
 ) -> Track | None:
     manager = await listener.get_manager()
     session = listener.find_session(manager)
@@ -153,9 +155,38 @@ async def run_once(
     )
     if tracker.on_track(track):
         assert track is not None
-        client.scrobble(track.artist, track.title, track.album)
-        print(f"已 scrobble：{track.artist} - {track.title}")
+        try:
+            client.scrobble(track.artist, track.title, track.album)
+            print(f"已 scrobble：{track.artist} - {track.title}")
+        except LastfmError as exc:
+            print(f"last.fm 错误：{exc}，已加入缓存队列", file=sys.stderr)
+            if pending is not None:
+                pending.add(
+                    PendingScrobble(
+                        artist=track.artist,
+                        title=track.title,
+                        album=track.album,
+                        timestamp=int(time.time()),
+                    )
+                )
     return track
+
+
+def flush_pending(client: LastfmClient, pending: PendingQueue) -> None:
+    items = pending.load()
+    if not items:
+        return
+    for index, item in enumerate(items):
+        try:
+            client.scrobble(item.artist, item.title, item.album, timestamp=item.timestamp)
+            print(f"缓存补交成功：{item.artist} - {item.title}")
+        except LastfmError as exc:
+            # 网络还没恢复，保留当前及之后的记录，下次再试。
+            remaining = items[index:]
+            pending.save(remaining)
+            print(f"缓存补交失败，保留 {len(remaining)} 条：{exc}", file=sys.stderr)
+            return
+    pending.save([])
 
 
 def _read_credentials(input_fn=None) -> tuple[str, str]:
@@ -201,15 +232,30 @@ async def amain() -> int:
     library = LocalLibrary(prefer_albums=config.prefer_albums)
     ncm = NcmPlayingReader()
     album_memo: dict[tuple[str, str], str] = {}
+    pending = PendingQueue(config_path.parent / "pending_scrobbles.json")
     print("开始监听网易云音乐（Ctrl+C 退出）…")
+
+    flush_pending(client, pending)
+    last_flush = time.monotonic()
 
     while True:
         try:
-            await run_once(listener, tracker, client, clock, durations, library, ncm, album_memo)
+            await run_once(
+                listener, tracker, client, clock, durations, library, ncm, album_memo, pending
+            )
         except LastfmError as exc:
             print(f"last.fm 错误：{exc}", file=sys.stderr)
         except Exception as exc:  # noqa: BLE001 - 常驻进程，任何异常都只记录不退出
             print(f"监听异常：{exc!r}", file=sys.stderr)
+
+        now = time.monotonic()
+        if now - last_flush >= 30:
+            try:
+                flush_pending(client, pending)
+            except Exception as exc:  # noqa: BLE001
+                print(f"缓存补交异常：{exc!r}", file=sys.stderr)
+            last_flush = now
+
         await asyncio.sleep(POLL_SECONDS)
 
 
