@@ -42,17 +42,28 @@ class LastfmClient:
         params["api_sig"] = self.sign(
             {k: v for k, v in params.items() if k not in ("api_sig", "format")}
         )
-        if method == "GET":
-            resp = requests.get(API_ROOT, params=params, timeout=self.timeout)
-        else:
-            resp = requests.post(API_ROOT, data=params, timeout=self.timeout)
-        resp.raise_for_status()
-        data = resp.json()
-        if data.get("error"):
-            raise LastfmError(
-                f"last.fm error {data['error']}: {data.get('message', '')}"
-            )
-        return data
+
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                if method == "GET":
+                    resp = requests.get(API_ROOT, params=params, timeout=self.timeout)
+                else:
+                    resp = requests.post(API_ROOT, data=params, timeout=self.timeout)
+                resp.raise_for_status()
+                data = resp.json()
+                if data.get("error"):
+                    raise LastfmError(
+                        f"last.fm error {data['error']}: {data.get('message', '')}"
+                    )
+                return data
+            except LastfmError:
+                raise
+            except requests.RequestException as exc:
+                last_error = exc
+                time.sleep(1.0 * (attempt + 1))
+
+        raise LastfmError(f"网络请求失败：{last_error}")
 
     def get_token(self) -> str:
         data = self._call({"method": "auth.gettoken"})
