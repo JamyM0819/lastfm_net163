@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from winsdk.windows.media.control import (
     GlobalSystemMediaTransportControlsSessionManager as SessionManager,
 )
@@ -25,7 +27,13 @@ class SmtcListener:
         return any(keyword in lowered for keyword in self.match_keywords)
 
     async def get_manager(self):
-        return await SessionManager.request_async()
+        for attempt in range(3):
+            try:
+                return await SessionManager.request_async()
+            except OSError:
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(0.5 * (attempt + 1))
 
     def find_session(self, manager):
         for session in manager.get_sessions():
@@ -34,21 +42,28 @@ class SmtcListener:
         return None
 
     async def read_track(self, session) -> Track | None:
-        media = await session.try_get_media_properties_async()
-        info = session.get_playback_info()
-        timeline = session.get_timeline_properties()
+        for attempt in range(3):
+            try:
+                media = await session.try_get_media_properties_async()
+                info = session.get_playback_info()
+                timeline = session.get_timeline_properties()
 
-        title = media.title or ""
-        artist = media.artist or ""
-        album = media.album_title or ""
-        if not title or not artist:
-            return None
+                title = media.title or ""
+                artist = media.artist or ""
+                album = media.album_title or ""
+                if not title and not artist:
+                    return None
 
-        return Track(
-            title=title,
-            artist=artist,
-            album=album,
-            duration_seconds=_timedelta_to_seconds(timeline.end_time),
-            position_seconds=_timedelta_to_seconds(timeline.position),
-            is_playing=info.playback_status == PlaybackStatus.PLAYING,
-        )
+                return Track(
+                    title=title,
+                    artist=artist,
+                    album=album,
+                    duration_seconds=_timedelta_to_seconds(timeline.end_time),
+                    position_seconds=_timedelta_to_seconds(timeline.position),
+                    is_playing=info.playback_status == PlaybackStatus.PLAYING,
+                )
+            except OSError:
+                if attempt == 2:
+                    return None
+                await asyncio.sleep(0.5)
+        return None
