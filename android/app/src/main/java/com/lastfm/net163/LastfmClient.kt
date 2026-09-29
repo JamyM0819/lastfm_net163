@@ -6,6 +6,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.security.MessageDigest
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class LastfmError(message: String) : Exception(message)
@@ -79,12 +82,18 @@ class LastfmClient(
         for (i in 0 until tracks.length()) {
             val t = tracks.optJSONObject(i) ?: continue
             val nowPlaying = t.optJSONObject("@attr")?.optString("nowplaying").orEmpty().isNotBlank()
+            val date = t.optJSONObject("date")
+            val timeLabel = when {
+                nowPlaying -> "正在播放"
+                date != null && date.optLong("uts", 0) > 0 -> formatLocalTime(date.optLong("uts"))
+                else -> date?.optString("#text").orEmpty()
+            }
             list.add(
                 TrackItem(
                     title = t.optString("name"),
                     artist = t.optJSONObject("artist")?.optString("#text").orEmpty(),
                     imageUrl = imageUrl(t.optJSONArray("image")),
-                    timeLabel = if (nowPlaying) "正在播放" else (t.optJSONObject("date")?.optString("#text").orEmpty())
+                    timeLabel = timeLabel
                 )
             )
         }
@@ -148,6 +157,10 @@ class LastfmClient(
             )
         }
         return list
+    }
+
+    private fun formatLocalTime(utsSec: Long): String {
+        return SimpleDateFormat("MM月dd日 HH:mm", Locale.getDefault()).format(Date(utsSec * 1000))
     }
 
     internal fun imageUrl(arr: org.json.JSONArray?): String {
