@@ -245,6 +245,8 @@ async def amain() -> int:
             )
         except LastfmError as exc:
             print(f"last.fm 错误：{exc}", file=sys.stderr)
+        except OSError as exc:
+            print(f"系统忙，跳过本轮：{exc}", file=sys.stderr)
         except Exception as exc:  # noqa: BLE001 - 常驻进程，任何异常都只记录不退出
             print(f"监听异常：{exc!r}", file=sys.stderr)
 

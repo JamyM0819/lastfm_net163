@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 
 from winsdk.windows.media.control import (
     GlobalSystemMediaTransportControlsSessionManager as SessionManager,
@@ -36,9 +37,16 @@ class SmtcListener:
                 await asyncio.sleep(0.5 * (attempt + 1))
 
     def find_session(self, manager):
-        for session in manager.get_sessions():
-            if self._matches(session.source_app_user_model_id):
-                return session
+        for attempt in range(3):
+            try:
+                for session in manager.get_sessions():
+                    if self._matches(session.source_app_user_model_id):
+                        return session
+                return None
+            except OSError:
+                if attempt == 2:
+                    return None
+                time.sleep(0.3)
         return None
 
     async def read_track(self, session) -> Track | None:
