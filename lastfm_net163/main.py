@@ -157,7 +157,8 @@ async def run_once(
         assert track is not None
         try:
             client.scrobble(track.artist, track.title, track.album)
-            print(f"已 scrobble：{track.artist} - {track.title}")
+            album_suffix = f"（专辑：{track.album}）" if track.album else ""
+            print(f"已 scrobble：{track.artist} - {track.title}{album_suffix}")
         except LastfmError as exc:
             print(f"last.fm 错误：{exc}，已加入缓存队列", file=sys.stderr)
             if pending is not None:
@@ -179,7 +180,8 @@ def flush_pending(client: LastfmClient, pending: PendingQueue) -> None:
     for index, item in enumerate(items):
         try:
             client.scrobble(item.artist, item.title, item.album, timestamp=item.timestamp)
-            print(f"缓存补交成功：{item.artist} - {item.title}")
+            album_suffix = f"（专辑：{item.album}）" if item.album else ""
+            print(f"缓存补交成功：{item.artist} - {item.title}{album_suffix}")
         except LastfmError as exc:
             # 网络还没恢复，保留当前及之后的记录，下次再试。
             remaining = items[index:]
