@@ -223,12 +223,13 @@ class ScrobbleNotificationListener : NotificationListenerService() {
     }
 
     private fun submit(track: Track) {
+        val albumSuffix = if (track.album.isNotBlank()) "（专辑：${track.album}）" else ""
         try {
             lastfm?.scrobble(track.artist, track.title, track.album)
-            ScrobbleHistory.add(track.artist, track.title)
-            DebugLog.append("SCROBBLED ${track.artist} - ${track.title}")
+            ScrobbleHistory.add(track.artist, track.title, track.album)
+            DebugLog.append("SCROBBLED ${track.artist} - ${track.title}$albumSuffix")
         } catch (e: Exception) {
-            DebugLog.append("SCROBBLE FAILED ${track.artist} - ${track.title}: ${e.message}")
+            DebugLog.append("SCROBBLE FAILED ${track.artist} - ${track.title}$albumSuffix: ${e.message}")
             Log.w(TAG, "scrobble failed: ${e.message}")
         }
     }

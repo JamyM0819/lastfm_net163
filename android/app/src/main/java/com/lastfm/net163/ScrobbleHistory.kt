@@ -19,12 +19,13 @@ object ScrobbleHistory {
     }
 
     @Synchronized
-    fun add(artist: String, title: String) {
+    fun add(artist: String, title: String, album: String = "") {
         val ctx = appContext ?: return
         val sp = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val entries = sp.getString(KEY_ENTRIES, "") ?: ""
         val list = entries.split('\n').filter { it.isNotBlank() }.toMutableList()
-        list.add(0, "${fmt.format(Date())}  $artist - $title")
+        val albumSuffix = if (album.isNotBlank()) "（专辑：$album）" else ""
+        list.add(0, "${fmt.format(Date())}  $artist - $title$albumSuffix")
         while (list.size > MAX_ENTRIES) list.removeAt(list.size - 1)
         sp.edit().putString(KEY_ENTRIES, list.joinToString("\n")).apply()
     }

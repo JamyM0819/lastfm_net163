@@ -39,6 +39,8 @@ class MainActivity : AppCompatActivity() {
     private val refreshRunnable = object : Runnable {
         override fun run() {
             refreshStatus()
+            updateHistory()
+            updateLogText()
             handler.postDelayed(this, 1_000L)
         }
     }
@@ -68,6 +70,10 @@ class MainActivity : AppCompatActivity() {
 
     private val refreshingSections = mutableSetOf<String>()
 
+    private var logVisible = false
+    private var lastLogText: String? = null
+    private var lastHistoryText: String? = null
+
     private data class PeriodOption(val label: String, val apiValue: String)
 
     private val periodOptions = listOf(
@@ -89,11 +95,19 @@ class MainActivity : AppCompatActivity() {
         ScrobbleHistory.init(this)
 
         findViewById<ImageView>(R.id.avatar).setOnClickListener { showAvatarMenu() }
+        findViewById<TextView>(R.id.log_toggle).setOnClickListener { toggleLog() }
+        findViewById<TextView>(R.id.history_clear).setOnClickListener {
+            ScrobbleHistory.clear()
+            lastHistoryText = null
+            updateHistory()
+            Toast.makeText(this, "记录已清除", Toast.LENGTH_SHORT).show()
+        }
         swipe = findViewById<SwipeRefreshLayout>(R.id.swipe_refresh)
         swipe.setColorSchemeResources(android.R.color.holo_red_light)
         swipe.setOnRefreshListener { reload() }
         loadAvatar()
         refreshStatus()
+        updateHistory()
         loadDashboard()
     }
 
@@ -211,6 +225,59 @@ class MainActivity : AppCompatActivity() {
             status.text = "未授权 last.fm"
         } else {
             status.text = "已登录 · 同步中"
+        }
+    }
+
+    private fun toggleLog() {
+        logVisible = !logVisible
+        val panel = findViewById<View>(R.id.log_panel)
+        val toggle = findViewById<TextView>(R.id.log_toggle)
+        panel.visibility = if (logVisible) View.VISIBLE else View.GONE
+        toggle.text = if (logVisible) "收起日志" else "后台信息"
+        if (logVisible) {
+            updateLogText()
+            findViewById<ScrollView>(R.id.log_scroll).post {
+                findViewById<ScrollView>(R.id.log_scroll).fullScroll(View.FOCUS_DOWN)
+            }
+        }
+    }
+
+    private fun updateLogText() {
+        if (!logVisible) return
+        val text = DebugLog.text()
+        if (text == lastLogText) return
+        lastLogText = text
+        findViewById<TextView>(R.id.log_text).text = text.ifBlank { "暂无日志" }
+    }
+
+    private fun updateHistory() {
+        val entries = ScrobbleHistory.list()
+        val key = entries.joinToString("\n")
+        if (key == lastHistoryText) return
+        lastHistoryText = key
+
+        val list = findViewById<LinearLayout>(R.id.history_list)
+        list.removeAllViews()
+        if (entries.isEmpty()) {
+            val empty = TextView(this).apply {
+                text = "暂无记录"
+                setTextColor(muted)
+                textSize = 12f
+                setPadding(0, dp(6), 0, dp(6))
+            }
+            list.addView(empty)
+            return
+        }
+        entries.forEach { entry ->
+            val row = TextView(this).apply {
+                text = entry
+                setTextColor(lfmRedDark)
+                textSize = 12f
+                setPadding(0, dp(4), 0, dp(4))
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            }
+            list.addView(row)
         }
     }
 
