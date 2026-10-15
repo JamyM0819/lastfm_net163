@@ -277,8 +277,6 @@ class MainActivity : AppCompatActivity() {
                 setTextColor(logEntry)
                 textSize = 12f
                 setPadding(0, dp(4), 0, dp(4))
-                maxLines = 1
-                ellipsize = android.text.TextUtils.TruncateAt.END
             }
             list.addView(row)
         }
