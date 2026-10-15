@@ -49,6 +49,8 @@ class MainActivity : AppCompatActivity() {
     private val lfmRedDark = 0xFFB00E06.toInt()
     private val muted = 0xFF8A8A8A.toInt()
     private val line = 0xFFE8E8EC.toInt()
+    private val logEntry = 0xFFE8E8E8.toInt()
+    private val logMuted = 0xFF9A9A9A.toInt()
 
     private lateinit var swipe: SwipeRefreshLayout
 
@@ -235,9 +237,10 @@ class MainActivity : AppCompatActivity() {
         panel.visibility = if (logVisible) View.VISIBLE else View.GONE
         toggle.text = if (logVisible) "收起日志" else "后台信息"
         if (logVisible) {
+            updateHistory()
             updateLogText()
             findViewById<ScrollView>(R.id.log_scroll).post {
-                findViewById<ScrollView>(R.id.log_scroll).fullScroll(View.FOCUS_DOWN)
+                findViewById<ScrollView>(R.id.log_scroll).fullScroll(View.FOCUS_UP)
             }
         }
     }
@@ -261,7 +264,7 @@ class MainActivity : AppCompatActivity() {
         if (entries.isEmpty()) {
             val empty = TextView(this).apply {
                 text = "暂无记录"
-                setTextColor(muted)
+                setTextColor(logMuted)
                 textSize = 12f
                 setPadding(0, dp(6), 0, dp(6))
             }
@@ -271,7 +274,7 @@ class MainActivity : AppCompatActivity() {
         entries.forEach { entry ->
             val row = TextView(this).apply {
                 text = entry
-                setTextColor(lfmRedDark)
+                setTextColor(logEntry)
                 textSize = 12f
                 setPadding(0, dp(4), 0, dp(4))
                 maxLines = 1
