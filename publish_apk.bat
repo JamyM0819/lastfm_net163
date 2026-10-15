@@ -15,9 +15,9 @@ if errorlevel 1 (
 cd ..
 
 if not exist "apk" mkdir apk
-copy /y "androidppuild\outputspk\debugpp-debug.apk" "apkpp-debug.apk" > nul
+copy /y "android\app\build\outputs\apk\debug\app-debug.apk" "apk\app-debug.apk" > nul
 
-git add -f "apkpp-debug.apk"
+git add -f "apk\app-debug.apk"
 git diff --cached --quiet
 if errorlevel 1 (
   git commit -m "chore: 更新安卓 APK"
