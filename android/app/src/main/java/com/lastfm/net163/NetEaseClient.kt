@@ -169,7 +169,13 @@ class NetEaseClient(
         val name = song.optString("name")?.trim().orEmpty()
         if (id <= 0 || name.isEmpty()) return null
         val artists = song.optJSONArray("artists") ?: JSONArray()
-        val artist = if (artists.length() > 0) artists.optJSONObject(0)?.optString("name")?.trim().orEmpty() else ""
+        val artistNames = mutableListOf<String>()
+        for (i in 0 until artists.length()) {
+            artists.optJSONObject(i)?.optString("name")?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { artistNames.add(it) }
+        }
+        val artist = artistNames.joinToString(" / ")
         val album = song.optJSONObject("album")?.optString("name")?.trim().orEmpty()
         return CanonicalSong(
             id = id,
@@ -180,9 +186,15 @@ class NetEaseClient(
         )
     }
 
+    private fun artistKey(raw: String): String {
+        var key = raw.trim().lowercase(Locale.ROOT)
+        key = key.replace(" / ", "/").replace(" /", "/").replace("/ ", "/")
+        return key
+    }
+
     private fun artistMatches(wantedRaw: String, actualRaw: String): Boolean {
-        val wanted = wantedRaw.trim().lowercase(Locale.ROOT)
-        val actual = actualRaw.trim().lowercase(Locale.ROOT)
+        val wanted = artistKey(wantedRaw)
+        val actual = artistKey(actualRaw)
         if (wanted.isEmpty() || actual.isEmpty()) return false
         return wanted == actual || wanted in actual || actual in wanted
     }

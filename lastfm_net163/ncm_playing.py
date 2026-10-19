@@ -30,6 +30,18 @@ class NowPlaying:
     track_id: str
 
 
+def join_artist_names(artists: list[dict]) -> str:
+    """把网易云 track.artists 列表按 “ / ” 拼接成多歌手字符串。"""
+    names = []
+    for item in artists or []:
+        if not isinstance(item, dict):
+            continue
+        name = (item.get("name") or "").strip()
+        if name:
+            names.append(name)
+    return " / ".join(names)
+
+
 def _data_dir() -> Path | None:
     local = os.environ.get("LOCALAPPDATA", "")
     if not local:
@@ -180,7 +192,7 @@ class NcmPlayingReader:
         track = (data.get("curPlaying") or {}).get("track") or {}
         title = (track.get("name") or "").strip()
         artists = track.get("artists") or []
-        artist = (artists[0].get("name") or "").strip() if artists else ""
+        artist = join_artist_names(artists)
         album_obj = track.get("album") or {}
         album = (
             album_obj.get("name", "").strip()

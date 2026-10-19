@@ -37,18 +37,23 @@ class NetEaseClientTest {
         album: String = "Album",
         duration: Int = 83813,
         aliases: List<String> = emptyList(),
-        transName: String? = null
-    ) = JSONObject().put("id", id).put("name", name).put("duration", duration)
-        .put("artists", JSONArray().put(JSONObject().put("name", artist)))
-        .put("album", JSONObject().put("name", album))
-        .apply {
-            if (aliases.isNotEmpty()) {
-                val arr = JSONArray()
-                aliases.forEach { arr.put(it) }
-                put("alias", arr)
+        transName: String? = null,
+        additionalArtists: List<String> = emptyList()
+    ): JSONObject {
+        val artists = JSONArray().put(JSONObject().put("name", artist))
+        additionalArtists.forEach { artists.put(JSONObject().put("name", it)) }
+        return JSONObject().put("id", id).put("name", name).put("duration", duration)
+            .put("artists", artists)
+            .put("album", JSONObject().put("name", album))
+            .apply {
+                if (aliases.isNotEmpty()) {
+                    val arr = JSONArray()
+                    aliases.forEach { arr.put(it) }
+                    put("alias", arr)
+                }
+                if (transName != null) put("transName", transName)
             }
-            if (transName != null) put("transName", transName)
-        }
+    }
 
     @Test fun matchCanonicalStripsValidatedAliasSuffix() {
         // 实测格式：原名自带括号，网易云再拼一个 " (别名)"：
@@ -68,6 +73,18 @@ class NetEaseClientTest {
         // 没有翻译后缀时整串等于官方名，直接通过
         assertEquals("Lemon",
             NetEaseClient().matchCanonicalSong("Lemon", "米津玄師", song)?.title)
+    }
+
+    @Test fun matchCanonicalJoinsMultipleArtistsWithSlash() {
+        val song = songJson(5L, "Song", "A", additionalArtists = listOf("B", "C"))
+        val canonical = NetEaseClient().matchCanonicalSong("Song", "A / B / C", song)
+        assertEquals("A / B / C", canonical?.artist)
+    }
+
+    @Test fun matchCanonicalNormalizesArtistSlashSpacing() {
+        val song = songJson(6L, "Song", "A", additionalArtists = listOf("B"))
+        val canonical = NetEaseClient().matchCanonicalSong("Song", "A/B", song)
+        assertEquals("A / B", canonical?.artist)
     }
 
     @Test fun matchCanonicalDoesNotStripUnvalidatedParentheses() {

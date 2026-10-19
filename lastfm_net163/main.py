@@ -54,6 +54,14 @@ async def authorize(client: LastfmClient) -> str:
     raise LastfmError("等待 last.fm 授权超时")
 
 
+def _artist_key(value: str) -> str:
+    """把歌手字符串归一化后再比较，兼容 “A / B” 与 “A/B” 这类分隔符差异。"""
+    folded = (value or "").strip().lower()
+    for sep in (" / ", " /", "/ "):
+        folded = folded.replace(sep, "/")
+    return folded
+
+
 def _enrich(
     track: Track | None,
     clock: PlaybackClock | None,
@@ -70,15 +78,22 @@ def _enrich(
     position = track.position_seconds
     duration = track.duration_seconds
     album = track.album
+    artist = track.artist
 
     ncm_now = ncm.now() if ncm is not None else None
     ncm_match = ncm_now is not None and (
         ncm_now.title.strip().lower() == track.title.strip().lower()
         and (
-            ncm_now.artist.strip().lower() in track.artist.strip().lower()
-            or track.artist.strip().lower() in ncm_now.artist.strip().lower()
+            _artist_key(ncm_now.artist) == _artist_key(track.artist)
+            or _artist_key(ncm_now.artist) in _artist_key(track.artist)
+            or _artist_key(track.artist) in _artist_key(ncm_now.artist)
         )
     )
+
+    # 网易云当前播放信息命中时，采用其完整的 “A / B” 多歌手字符串，
+    # 和安卓端、以及网易云内的展示格式保持一致。
+    if ncm_match and ncm_now.artist:
+        artist = ncm_now.artist
 
     # 先补时长（不参与 key，顺序无关紧要，但保持补全先于计时）
     if duration <= 0:
@@ -92,7 +107,7 @@ def _enrich(
     # 再补专辑，并缓存结果：同一首歌内专辑值稳定，避免 key 跳变导致
     # ScrobbleTracker 反复重置、重复提交。
     if not album:
-        memo_key = (track.artist.strip().lower(), track.title.strip().lower())
+        memo_key = (artist.strip().lower(), track.title.strip().lower())
         if ncm_match and ncm_now.album:
             album = ncm_now.album
         elif album_memo is not None:
@@ -107,7 +122,7 @@ def _enrich(
     # 用补全后的 key 计时：同名同歌手但不同专辑的版本不会再串计时。
     enriched = Track(
         title=track.title,
-        artist=track.artist,
+        artist=artist,
         album=album,
         duration_seconds=duration,
         position_seconds=position,
@@ -118,7 +133,7 @@ def _enrich(
 
     return Track(
         title=track.title,
-        artist=track.artist,
+        artist=artist,
         album=album,
         duration_seconds=duration,
         position_seconds=position,
